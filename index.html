@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI合同审核工具 - 智能问答版</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/jszip.min.js"></script>
+    <style>
+        /* 额外的样式 */
+        .api-config {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .api-config h3 {
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        .api-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .api-input-group {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .api-input-group label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .api-input-group input, .api-input-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .upload-section h3 {
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        .file-upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .file-upload-area.drag-over {
+            border-color: #11998e;
+            background: #e8f5e9;
+        }
+
+        .file-upload-area:hover {
+            border-color: #11998e;
+            background: #f0f0f0;
+        }
+
+        .file-upload-area input {
+            display: none;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            padding: 8px;
+            background: #e8f5e9;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #2e7d32;
+        }
+
+        .check-options {
+            margin-top: 15px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .check-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .check-option label {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .qa-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .qa-section h3 {
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        .qa-input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .qa-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .qa-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 10px 20px;
+            white-space: nowrap;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .qa-history {
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .qa-item {
+            margin-bottom: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .qa-question {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .qa-answer {
+            background: #f5f5f5;
+            color: #333;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            border-left: 3px solid #667eea;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .generate-btn {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 12px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 合同预览样式 */
+        .contract-preview {
+            line-height: 1.8;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+
+        .contract-preview h1, .contract-preview h2, .contract-preview h3 {
+            margin: 20px 0 10px;
+            color: #333;
+        }
+
+        .contract-preview p {
+            margin: 10px 0;
+            text-align: justify;
+        }
+
+        .contract-preview .problem-highlight {
+            background-color: #ffebee;
+            color: #c62828;
+            font-weight: bold;
+            padding: 0 2px;
+            border-radius: 3px;
+        }
+
+        .contract-preview .issue-note {
+            background-color: #fff3e0;
+            color: #e65100;
+            font-size: 12px;
+            padding: 6px 10px;
+            margin: 5px 0 5px 20px;
+            border-radius: 4px;
+            border-left: 3px solid #ff9800;
+            line-height: 1.5;
+        }
+
+        .contract-preview .issue-note strong {
+            color: #bf360c;
+        }
+
+        .original-contract {
+            line-height: 1.8;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            white-space: pre-wrap;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: normal;
+        }
+
+        .badge-annotated {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .badge-original {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .summary-card h4 {
+            color: #c62828;
+            margin-bottom: 12px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .summary-card .issue-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #fafafa;
+            border-radius: 6px;
+            border-left: 3px solid #c62828;
+        }
+
+        .summary-card .issue-problem {
+            font-weight: bold;
+            color: #c62828;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        .summary-card .issue-suggestion {
+            color: #e65100;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .preview-panel, .code-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .preview-panel h2, .code-panel h2 {
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-content, .code-content {
+            min-height: 500px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 8px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                🔍 AI合同审核工具
+                <span style="font-size: 14px; background: #f5576c; color: white; padding: 4px 12px; border-radius: 20px;">智能问答版</span>
+            </h1>
+            <p class="subtitle">✨ 上传合同 | AI标注问题 | 针对合同提问</p>
+            
+            <div class="api-config">
+                <h3>🔑 API 配置</h3>
+                <div class="api-row">
+                    <div class="api-input-group">
+                        <label>DeepSeek API Key</label>
+                        <input type="password" id="apiKey" placeholder="请输入你的 DeepSeek API Key" value="">
+                    </div>
+                    <div class="api-input-group">
+                        <label>模型选择</label>
+                        <select id="model">
+                            <option value="deepseek-chat">DeepSeek v4-flash</option>
+                            <option value="deepseek-coder">DeepSeek v4-pro</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="font-size: 12px; color: #999; margin-top: 10px;">
+                    💡 没有API Key？访问 <a href="https://platform.deepseek.com/" target="_blank">platform.deepseek.com</a> 注册获取
+                </div>
+            </div>
+
+            <div class="upload-section">
+                <h3>📄 上传合同文件</h3>
+                <div id="fileUploadArea" class="file-upload-area" onclick="document.getElementById('contractFile').click()">
+                    <input type="file" id="contractFile" accept=".docx" onchange="handleFileSelect(event)">
+                    <div>📁 点击或拖拽上传DOCX合同文件</div>
+                    <div style="font-size: 12px; color: #999; margin-top: 8px;">支持 .docx 格式</div>
+                </div>
+                <div id="fileInfo" class="file-info" style="display: none;"></div>
+                
+                <div class="check-options">
+                    <div class="check-option">
+                        <input type="checkbox" id="checkTerms" checked>
+                        <label>📋 条款合理性</label>
+                    </div>
+                    <div class="check-option">
+                        <input type="checkbox" id="checkRisk" checked>
+                        <label>⚠️ 风险点识别</label>
+                    </div>
+                    <div class="check-option">
+                        <input type="checkbox" id="checkCompliance" checked>
+                        <label>⚖️ 合规性审查</label>
+                    </div>
+                    <div class="check-option">
+                        <input type="checkbox" id="checkMissing" checked>
+                        <label>🔍 缺失条款建议</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="generate-btn" onclick="checkContract()" id="checkBtn" disabled>🔍 开始审核合同</button>
+                <button class="download-btn" onclick="downloadDoc()" id="downloadBtn" disabled>💾 下载标注后合同</button>
+                <button onclick="clearPreview()">🗑️ 清空预览</button>
+            </div>
+            <div id="status" class="status info">⏳ 请先上传合同文件，然后点击审核</div>
+        </div>
+
+        <div class="qa-section">
+            <h3>💬 向AI提问（针对当前合同）</h3>
+            <div class="qa-input-area">
+                <textarea id="userQuestion" class="qa-input" rows="2" placeholder="例如：这份合同中关于验收的条款对我方是否有利？有哪些风险？"></textarea>
+                <button class="qa-btn" onclick="askQuestion()" id="askBtn" disabled>💬 提问</button>
+            </div>
+            <div id="qaHistory" class="qa-history">
+                <div style="color: #999; text-align: center; padding: 20px;">审核合同后，可在这里提问</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="preview-panel">
+                <h2>
+                    📖 合同预览（标注版）
+                    <span class="badge badge-annotated">红色=问题</span>
+                </h2>
+                <div id="previewContent" class="preview-content">
+                    <div style="text-align: center; color: #999; padding: 40px;">
+                        📄 上传合同文件后点击"开始审核"<br>
+                        AI将自动识别问题并用红色加粗标记
+                    </div>
+                </div>
+                <div id="summaryCard" class="summary-card" style="display: none;">
+                    <h4>📋 问题汇总</h4>
+                    <div id="issueList"></div>
+                </div>
+            </div>
+            <div class="code-panel">
+                <h2>
+                    📄 合同原文
+                    <span class="badge badge-original">未标注版本</span>
+                </h2>
+                <div id="codeContent" class="preview-content">
+                    <div style="color: #888; text-align: center; padding: 40px;">
+                        等待合同上传...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/docx.umd.min.js"></script>
+    <script src="js/word-generator.js"></script>
+    <script src="js/mammoth.browser.min.js"></script>
+    
+    <script>
+        let generator = null;
+        let currentDocBlob = null;
+        let originalHtmlContent = '';
+        let originalPlainText = '';
+        let originalFileBuffer = null;
+        let qaHistory = [];
+        let currentIssues = [];
+        
+        const STORAGE_KEY = 'deepseek_api_key';
+        
+        function loadApiKey() {
+            const savedKey = localStorage.getItem(STORAGE_KEY);
+            if (savedKey) {
+                document.getElementById('apiKey').value = savedKey;
+            }
+        }
+        
+        function saveApiKey() {
+            const apiKey = document.getElementById('apiKey').value;
+            if (apiKey) {
+                localStorage.setItem(STORAGE_KEY, apiKey);
+            }
+        }
+        
+        document.getElementById('apiKey').addEventListener('change', saveApiKey);
+        
+        // 拖拽上传
+        const uploadArea = document.getElementById('fileUploadArea');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+        
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+        
+        async function handleFile(file) {
+            if (!file.name.endsWith('.docx')) {
+                updateStatus("❌ 请上传 .docx 格式的文件", 'error');
+                return;
+            }
+            
+            const fileInfo = document.getElementById('fileInfo');
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = `📄 已上传：${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+            
+            updateStatus("📖 正在提取合同文本...", 'info');
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                originalFileBuffer = arrayBuffer;
+                const textResult = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                originalPlainText = textResult.value;
+                
+                const htmlResult = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+                originalHtmlContent = htmlResult.value;
+                
+                const originalDiv = document.getElementById('codeContent');
+                originalDiv.innerHTML = `
+                    <div style="background: white; padding: 20px; border-radius: 8px;">
+                        <div style="border-bottom: 2px solid #2e7d32; margin-bottom: 20px; padding-bottom: 10px;">
+                            <span style="font-size: 12px; color: #2e7d32;">📄 合同原文</span>
+                            <span style="font-size: 12px; color: #999; margin-left: 10px;">${new Date().toLocaleString()}</span>
+                        </div>
+                        <div class="original-contract">
+                            ${originalHtmlContent || `<pre style="white-space: pre-wrap;">${escapeHtml(originalPlainText)}</pre>`}
+                        </div>
+                    </div>
+                `;
+                
+                updateStatus(`✅ 合同提取成功，共 ${originalPlainText.length} 字符，点击审核`, 'success');
+                document.getElementById('checkBtn').disabled = false;
+            } catch (error) {
+                console.error("提取文本失败:", error);
+                updateStatus(`❌ 提取文本失败: ${error.message}`, 'error');
+            }
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        function showLoading(btnId) {
+            const btn = document.getElementById(btnId);
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> 处理中...';
+        }
+        
+        function hideLoading(btnId, originalText) {
+            const btn = document.getElementById(btnId);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function updateSummaryCard(issues) {
+            const summaryCard = document.getElementById('summaryCard');
+            const issueListDiv = document.getElementById('issueList');
+            
+            if (issues.length === 0) {
+                summaryCard.style.display = 'none';
+                return;
+            }
+            
+            summaryCard.style.display = 'block';
+            let html = '';
+            issues.forEach((issue, idx) => {
+                html += `
+                    <div class="issue-item">
+                        <div class="issue-problem">⚠️ 问题 ${idx + 1}：${issue.problem}</div>
+                        <div class="issue-suggestion">💡 建议：${issue.suggestion}</div>
+                    </div>
+                `;
+            });
+            issueListDiv.innerHTML = html;
+        }
+        
+        function updatePreview(annotatedHtml, issues) {
+            const previewDiv = document.getElementById('previewContent');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const askBtn = document.getElementById('askBtn');
+            
+            currentIssues = issues;
+            
+            previewDiv.innerHTML = `
+                <div style="background: white; padding: 20px; border-radius: 8px;">
+                    <div style="border-bottom: 2px solid #c62828; margin-bottom: 20px; padding-bottom: 10px;">
+                        <span style="font-size: 12px; color: #c62828;">🔍 AI审核结果</span>
+                        <span style="font-size: 12px; color: #999; margin-left: 10px;">${new Date().toLocaleString()}</span>
+                        <span style="font-size: 12px; color: #c62828; margin-left: 10px;">发现问题: ${issues.length}个</span>
+                    </div>
+                    <div class="contract-preview">
+                        ${annotatedHtml}
+                    </div>
+                    <div style="margin-top: 20px; padding: 10px; background: #e3f2fd; border-radius: 6px; font-size: 12px; color: #1976d2; text-align: center;">
+                        ⚡ 红色加粗部分为AI识别的问题，点击下载可获取标注后的完整Word文档
+                    </div>
+                </div>
+            `;
+            
+            updateSummaryCard(issues);
+            downloadBtn.disabled = false;
+            askBtn.disabled = false;
+            qaHistory = [];
+            updateQaHistory();
+        }
+        
+        async function generateAnnotatedDocx(annotatedHtml, issues) {
+            try {
+                if (!originalFileBuffer) return;
+
+                const zip = await JSZip.loadAsync(originalFileBuffer);
+                let docXmlText = await zip.file('word/document.xml').async('string');
+
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = annotatedHtml;
+
+                // 提取 span 高亮
+                let highlights = Array.from(tempDiv.querySelectorAll('.problem-highlight'))
+                    .map(el => el.textContent.trim()).filter(t => t.length > 3);
+
+                // 提取建议
+                const annEls = tempDiv.querySelectorAll('.issue-annotation');
+                const annTexts = Array.from(annEls).map(el => el.textContent.trim());
+
+                // 如果没有 span，回退：用 issue-annotation 前面的段落文本
+                if (highlights.length === 0 && annEls.length > 0) {
+                    highlights = Array.from(annEls).map(el => {
+                        let prev = el.previousElementSibling;
+                        while (prev && !['P','LI','OL','DIV'].includes(prev.tagName)) prev = prev.previousElementSibling;
+                        return prev ? prev.textContent.trim() : '';
+                    }).filter(t => t.length > 3);
+                }
+
+                if (highlights.length === 0) {
+                    currentDocBlob = new Blob([originalFileBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+                    return;
+                }
+
+                // 正则提取 DOCX 段落
+                const paraRegex = /<w:p[\s>]([\s\S]*?)<\/w:p>/g;
+                const paras = [];
+                let m;
+                while ((m = paraRegex.exec(docXmlText)) !== null) {
+                    const tr = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+                    let text = '', tm;
+                    while ((tm = tr.exec(m[1])) !== null) text += tm[1];
+                    paras.push({ xml: m[0], text: text.trim() });
+                }
+
+                // 匹配
+                const used = new Set();
+                const inserts = [];
+                for (let h = 0; h < highlights.length; h++) {
+                    const hl = highlights[h];
+                    const key = hl.replace(/\s+/g, '').substring(0, 50);
+                    if (key.length < 3) continue;
+                    let best = -1, bestScore = 0;
+                    for (let i = 0; i < paras.length; i++) {
+                        if (used.has(i)) continue;
+                        const clean = paras[i].text.replace(/\s+/g, '');
+                        if (clean.includes(key)) {
+                            const s = key.length / Math.max(1, clean.length);
+                            if (s > bestScore && s > 0.1) { bestScore = s; best = i; }
+                        } else if (clean.length > 10 && key.includes(clean)) {
+                            const s = clean.length / Math.max(1, key.length) * 0.8;
+                            if (s > bestScore && s > 0.1) { bestScore = s; best = i; }
+                        }
+                    }
+                    if (best >= 0) {
+                        used.add(best);
+                        inserts.push({
+                            xml: paras[best].xml,
+                            problem: hl,
+                            suggestion: h < annTexts.length ? annTexts[h] : (issues && issues[h] ? issues[h].suggestion : '')
+                        });
+                    }
+                }
+
+                // 倒序插入：段落加红粗 + 标注块
+                const esc = (s) => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                for (let i = inserts.length - 1; i >= 0; i--) {
+                    const ins = inserts[i];
+                    const pos = docXmlText.indexOf(ins.xml);
+                    if (pos === -1) continue;
+
+                    let modXml = ins.xml;
+                    modXml = modXml.replace(/(<w:rPr>)(.*?)(<\/w:rPr>)/g, '$1<w:color w:val="C62828"/><w:b/>$2$3');
+                    modXml = modXml.replace(/(<w:r>)(?!\s*<w:rPr>)/g, '$1<w:rPr><w:color w:val="C62828"/><w:b/></w:rPr>');
+
+                    const anno = `
+<w:p>
+  <w:pPr><w:shd w:val="clear" w:color="auto" w:fill="FFF3CD"/></w:pPr>
+  <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="C62828"/><w:b/></w:rPr><w:t xml:space="preserve">⚠️ ${esc(ins.problem)}</w:t></w:r>
+</w:p>
+<w:p>
+  <w:pPr><w:shd w:val="clear" w:color="auto" w:fill="FFF3CD"/></w:pPr>
+  <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="856404"/></w:rPr><w:t xml:space="preserve">💡 ${esc(ins.suggestion)}</w:t></w:r>
+</w:p>`;
+
+                    docXmlText = docXmlText.substring(0, pos) + modXml + anno + docXmlText.substring(pos + ins.xml.length);
+                }
+
+                zip.file('word/document.xml', docXmlText);
+                currentDocBlob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+
+            } catch (error) {
+                console.error("生成标注 DOCX 失败:", error);
+                currentDocBlob = new Blob([originalFileBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+            }
+        }
+        
+        function updateQaHistory() {
+            const historyDiv = document.getElementById('qaHistory');
+            if (qaHistory.length === 0) {
+                historyDiv.innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">审核合同后，可在这里提问</div>';
+                return;
+            }
+            historyDiv.innerHTML = qaHistory.map(item => `
+                <div class="qa-item">
+                    <div class="qa-question"><strong>❓ 用户：</strong> ${escapeHtml(item.question)}</div>
+                    <div class="qa-answer"><strong>🤖 AI：</strong> ${escapeHtml(item.answer).replace(/\n/g, '<br>')}</div>
+                </div>
+            `).join('');
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+        }
+        
+        async function askQuestion() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const model = document.getElementById('model').value;
+            const question = document.getElementById('userQuestion').value.trim();
+            
+            if (!apiKey) { updateStatus("❌ 请输入DeepSeek API Key", 'error'); return; }
+            if (!originalPlainText) { updateStatus("❌ 请先上传合同文件", 'error'); return; }
+            if (!question) { updateStatus("❌ 请输入问题", 'error'); return; }
+            
+            showLoading('askBtn');
+            try {
+                const systemPrompt = `你是一个专业的合同审核专家。请根据以下合同内容回答用户的问题，使用纯文本格式，不要使用任何Markdown语法。
+
+合同内容：${originalPlainText.substring(0, 6000)}`;
+                
+                const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({ model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: question }], temperature: 0.5, max_tokens: 2048 })
+                });
+                
+                if (!response.ok) throw new Error('API请求失败');
+                const data = await response.json();
+                let answer = data.choices[0].message.content;
+                answer = answer.replace(/\*\*/g, '').replace(/`/g, '').replace(/^#+\s*/gm, '').replace(/^-\s*/gm, '• ');
+                
+                qaHistory.push({ question, answer });
+                updateQaHistory();
+                document.getElementById('userQuestion').value = '';
+                updateStatus("✅ 问题已解答", 'success');
+            } catch (error) {
+                updateStatus(`❌ 提问失败: ${error.message}`, 'error');
+            } finally {
+                hideLoading('askBtn', '💬 提问');
+            }
+        }
+        
+        async function downloadDoc() {
+            if (!currentDocBlob) { updateStatus("⚠️ 请先完成合同审核", 'error'); return; }
+            try {
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(currentDocBlob);
+                link.href = url;
+                link.download = `合同审核结果_${new Date().toISOString().slice(0, 19)}.docx`;
+                link.click();
+                URL.revokeObjectURL(url);
+                updateStatus("✅ 合同下载成功！", 'success');
+            } catch (error) {
+                updateStatus(`❌ 下载失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkContract() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const model = document.getElementById('model').value;
+            
+            if (!apiKey) { updateStatus("❌ 请输入DeepSeek API Key", 'error'); return; }
+            if (!originalPlainText) { updateStatus("❌ 请先上传合同文件", 'error'); return; }
+            
+            showLoading('checkBtn');
+            try {
+                const systemPrompt = `你是一个专业的合同审核专家。请分析合同内容，输出HTML格式的标注结果。
+
+【必须严格遵守的标注规则】
+1. 把原文中有问题的**具体文字**用 <span class="problem-highlight"> 和 </span> 包裹起来，比如原文是"甲方应在30日内付款"，你标注为：<span class="problem-highlight">甲方应在30日内付款</span>
+2. 在每个有问题的段落后面紧跟着添加：<div class="issue-annotation"><strong>⚠️ 问题：</strong>具体说明<br><strong>💡 建议：</strong>修改建议</div>
+3. 没有问题的条款原样保留，不要修改
+4. 直接输出HTML，不要包含DOCTYPE/html/body标签，不要用markdown代码块包裹
+
+【示例】
+原始：<p><strong>第三条 付款</strong></p><p>甲方应在收到发票后30日内支付款项。</p>
+标注后：<p><strong>第三条 付款</strong></p><p><span class="problem-highlight">甲方应在收到发票后30日内支付款项。</span></p><div class="issue-annotation"><strong>⚠️ 问题：</strong>付款期限过长<br><strong>💡 建议：</strong>建议缩短为15日内支付</div>`;
+
+                const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({ model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: `请审核以下合同：\n\n${originalHtmlContent}` }], temperature: 0.5, max_tokens: 8192 })
+                });
+
+                if (!response.ok) throw new Error('API请求失败');
+                const data = await response.json();
+                let htmlContent = data.choices[0].message.content.replace(/```html\n?/g, '').replace(/```\n?/g, '').trim();
+
+                const issues = [];
+                const noteRegex = /<div class="issue-annotation">.*?<strong>⚠️ 问题：<\/strong>(.*?)<br>.*?<strong>💡 建议：<\/strong>(.*?)<\/div>/gs;
+                let match;
+                while ((match = noteRegex.exec(htmlContent)) !== null) {
+                    issues.push({ problem: match[1].trim(), suggestion: match[2].trim() });
+                }
+
+                // 保存 class 版本给 DOCX 生成用
+                const classBasedHtml = htmlContent;
+
+                // 替换为内联样式（页面预览用）
+                htmlContent = htmlContent.replace(
+                    /<span class="problem-highlight">/g,
+                    '<span style="background-color:#ffebee;color:#c62828;font-weight:bold;padding:0 2px;border-radius:3px;">'
+                );
+                htmlContent = htmlContent.replace(
+                    /<div class="issue-annotation">/g,
+                    '<div style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:8px 12px;margin:8px 0;font-size:12px;color:#856404;border-radius:4px;">'
+                );
+
+                updatePreview(htmlContent, issues);
+                generateAnnotatedDocx(classBasedHtml, issues);
+                updateStatus(`✅ 审核完成！发现 ${issues.length} 个问题`, 'success');
+            } catch (error) {
+                updateStatus(`❌ 审核失败: ${error.message}`, 'error');
+            } finally {
+                hideLoading('checkBtn', '🔍 开始审核合同');
+            }
+        }
+        
+        function clearPreview() {
+            document.getElementById('previewContent').innerHTML = `<div style="text-align: center; color: #999; padding: 40px;">📄 上传合同文件后点击"开始审核"<br>AI将自动识别问题并用红色加粗标记</div>`;
+            document.getElementById('summaryCard').style.display = 'none';
+            document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('askBtn').disabled = true;
+            currentDocBlob = null;
+            qaHistory = [];
+            updateQaHistory();
+            updateStatus("✅ 已清空预览", 'success');
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            loadApiKey();
+            updateStatus("✅ 初始化成功！请上传合同文件进行审核", 'success');
+        });
+    </script>
+</body>
+</html>
