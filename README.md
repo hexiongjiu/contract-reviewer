@@ -74,6 +74,20 @@ python -m http.server 8080
 
 ---
 
+## 🙏 致谢
+
+本项目基于以下优秀的开源库构建：
+
+| 库 | 用途 | 许可证 |
+|---|---|---|
+| [Mammoth.js](https://github.com/mwilliamson/mammoth.js) | DOCX 解析 | BSD-2 |
+| [JSZip](https://github.com/Stuk/jszip) | DOCX 格式保留与修改 | MIT |
+| [docx.js](https://github.com/dolanmiu/docx) | DOCX 生成 | MIT |
+
+详见 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)
+
+---
+
 ## 📝 License
 
 MIT © 2026 hexiongjiu
