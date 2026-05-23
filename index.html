@@ -457,6 +457,26 @@
                 </div>
             </div>
 
+            <div class="api-config">
+                <h3>📝 审核配置</h3>
+                <div class="api-input-group">
+                    <label>审核重点和要求</label>
+                    <textarea id="reviewInstructions" rows="8" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:13px;resize:vertical;">请重点审核以下方面：
+
+1. **条款合理性**：检查合同条款是否公平公正，是否存在明显有利于某一方的霸王条款
+2. **风险点识别**：识别可能存在的法律风险、履约风险、财务风险等
+3. **合规性审查**：检查合同内容是否符合相关法律法规的要求
+4. **缺失条款**：指出合同中缺少的重要条款（如保密条款、违约责任、争议解决等）
+5. **表述准确性**：检查合同表述是否清晰明确，是否存在歧义或模糊不清的地方
+
+请针对每份合同的具体内容，给出专业的审核意见和修改建议。</textarea>
+                </div>
+                <div style="font-size: 12px; color: #999; margin-top: 8px; display:flex;justify-content:space-between;align-items:center;">
+                    <span>💡 可根据不同合同类型自定义审核重点</span>
+                    <button onclick="resetInstructions()" style="font-size:12px;padding:4px 10px;border-radius:4px;border:1px solid #ddd;cursor:pointer;">恢复默认</button>
+                </div>
+            </div>
+
             <div class="upload-section">
                 <h3>📄 上传合同文件</h3>
                 <div id="fileUploadArea" class="file-upload-area" onclick="document.getElementById('contractFile').click()">
@@ -550,7 +570,30 @@
         let currentIssues = [];
         
         const STORAGE_KEY = 'deepseek_api_key';
-        
+        const INSTRUCTIONS_STORAGE_KEY = 'review_instructions';
+        const DEFAULT_INSTRUCTIONS = `请重点审核以下方面：
+
+1. **条款合理性**：检查合同条款是否公平公正，是否存在明显有利于某一方的霸王条款
+2. **风险点识别**：识别可能存在的法律风险、履约风险、财务风险等
+3. **合规性审查**：检查合同内容是否符合相关法律法规的要求
+4. **缺失条款**：指出合同中缺少的重要条款（如保密条款、违约责任、争议解决等）
+5. **表述准确性**：检查合同表述是否清晰明确，是否存在歧义或模糊不清的地方
+
+请针对每份合同的具体内容，给出专业的审核意见和修改建议。`;
+
+        // 固定的系统提示词（用户看不到，只控制输出格式）
+        const SYSTEM_PROMPT = `你是一个专业的合同审核专家。请分析合同内容，输出HTML格式的标注结果。
+
+【必须严格遵守的标注规则】
+1. 把原文中有问题的**具体文字**用 <span class="problem-highlight"> 和 </span> 包裹起来，比如原文是"甲方应在30日内付款"，你标注为：<span class="problem-highlight">甲方应在30日内付款</span>
+2. 在每个有问题的段落后面紧跟着添加：<div class="issue-annotation"><strong>⚠️ 问题：</strong>具体说明<br><strong>💡 建议：</strong>修改建议</div>
+3. 没有问题的条款原样保留，不要修改
+4. 直接输出HTML，不要包含DOCTYPE/html/body标签，不要用markdown代码块包裹
+
+【示例】
+原始：<p><strong>第三条 付款</strong></p><p>甲方应在收到发票后30日内支付款项。</p>
+标注后：<p><strong>第三条 付款</strong></p><p><span class="problem-highlight">甲方应在收到发票后30日内支付款项。</span></p><div class="issue-annotation"><strong>⚠️ 问题：</strong>付款期限过长<br><strong>💡 建议：</strong>建议缩短为15日内支付</div>`;
+
         function loadApiKey() {
             const savedKey = localStorage.getItem(STORAGE_KEY);
             if (savedKey) {
@@ -566,7 +609,24 @@
         }
         
         document.getElementById('apiKey').addEventListener('change', saveApiKey);
-        
+
+        function loadInstructions() {
+            const saved = localStorage.getItem(INSTRUCTIONS_STORAGE_KEY);
+            if (saved) document.getElementById('reviewInstructions').value = saved;
+        }
+
+        function saveInstructions() {
+            const v = document.getElementById('reviewInstructions').value;
+            if (v) localStorage.setItem(INSTRUCTIONS_STORAGE_KEY, v);
+        }
+
+        function resetInstructions() {
+            document.getElementById('reviewInstructions').value = DEFAULT_INSTRUCTIONS;
+            localStorage.removeItem(INSTRUCTIONS_STORAGE_KEY);
+        }
+
+        document.getElementById('reviewInstructions').addEventListener('change', saveInstructions);
+
         // 拖拽上传
         const uploadArea = document.getElementById('fileUploadArea');
         
@@ -888,28 +948,25 @@
         async function checkContract() {
             const apiKey = document.getElementById('apiKey').value.trim();
             const model = document.getElementById('model').value;
-            
+            const userInstructions = document.getElementById('reviewInstructions').value;
+
+            // 合并固定系统提示词 + 用户审核重点
+            const combinedPrompt = `${SYSTEM_PROMPT}
+
+====================
+
+审核重点和要求：
+${userInstructions}`;
+
             if (!apiKey) { updateStatus("❌ 请输入DeepSeek API Key", 'error'); return; }
             if (!originalPlainText) { updateStatus("❌ 请先上传合同文件", 'error'); return; }
-            
+
             showLoading('checkBtn');
             try {
-                const systemPrompt = `你是一个专业的合同审核专家。请分析合同内容，输出HTML格式的标注结果。
-
-【必须严格遵守的标注规则】
-1. 把原文中有问题的**具体文字**用 <span class="problem-highlight"> 和 </span> 包裹起来，比如原文是"甲方应在30日内付款"，你标注为：<span class="problem-highlight">甲方应在30日内付款</span>
-2. 在每个有问题的段落后面紧跟着添加：<div class="issue-annotation"><strong>⚠️ 问题：</strong>具体说明<br><strong>💡 建议：</strong>修改建议</div>
-3. 没有问题的条款原样保留，不要修改
-4. 直接输出HTML，不要包含DOCTYPE/html/body标签，不要用markdown代码块包裹
-
-【示例】
-原始：<p><strong>第三条 付款</strong></p><p>甲方应在收到发票后30日内支付款项。</p>
-标注后：<p><strong>第三条 付款</strong></p><p><span class="problem-highlight">甲方应在收到发票后30日内支付款项。</span></p><div class="issue-annotation"><strong>⚠️ 问题：</strong>付款期限过长<br><strong>💡 建议：</strong>建议缩短为15日内支付</div>`;
-
                 const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({ model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: `请审核以下合同：\n\n${originalHtmlContent}` }], temperature: 0.5, max_tokens: 8192 })
+                    body: JSON.stringify({ model, messages: [{ role: 'system', content: combinedPrompt }, { role: 'user', content: `请审核以下合同：\n\n${originalHtmlContent}` }], temperature: 0.5, max_tokens: 8192 })
                 });
 
                 if (!response.ok) throw new Error('API请求失败');
@@ -959,6 +1016,7 @@
         
         document.addEventListener('DOMContentLoaded', () => {
             loadApiKey();
+            loadInstructions();
             updateStatus("✅ 初始化成功！请上传合同文件进行审核", 'success');
         });
     </script>
