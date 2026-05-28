@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI合同审核工具 - 智能问答版</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/quill.snow.css">
     <script src="js/jszip.min.js"></script>
     <style>
         /* 额外的样式 */
@@ -285,6 +286,48 @@
             white-space: pre-wrap;
         }
 
+        /* Quill editor overrides */
+        #codeContent {
+            padding: 0;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+        #codeContent .ql-toolbar {
+            border: none;
+            border-bottom: 1px solid #e0e0e0;
+            border-radius: 8px 8px 0 0;
+            background: #fafafa;
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        #codeContent .ql-container {
+            border: none;
+            font-size: 14px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            flex: 1;
+            min-height: 500px;
+        }
+        #codeContent .ql-editor {
+            min-height: 500px;
+            max-height: 560px;
+            line-height: 1.8;
+            padding: 20px;
+        }
+        #codeContent .ql-editor h1, #codeContent .ql-editor h2, #codeContent .ql-editor h3 {
+            margin: 20px 0 10px;
+            color: #333;
+        }
+        #codeContent .ql-editor p {
+            margin: 10px 0;
+            text-align: justify;
+        }
+        .code-panel .preview-content {
+            overflow: visible;
+        }
+
         .badge {
             display: inline-block;
             padding: 4px 8px;
@@ -509,6 +552,7 @@
             <div class="button-group">
                 <button class="generate-btn" onclick="checkContract()" id="checkBtn" disabled>🔍 开始审核合同</button>
                 <button class="download-btn" onclick="downloadDoc()" id="downloadBtn" disabled>💾 下载标注后合同</button>
+                <button class="download-btn" onclick="downloadEditedDoc()" id="downloadEditedBtn" disabled style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">✏️ 下载修改后合同</button>
                 <button onclick="clearPreview()">🗑️ 清空预览</button>
             </div>
             <div id="status" class="status info">⏳ 请先上传合同文件，然后点击审核</div>
@@ -559,6 +603,7 @@
     <script src="js/docx.umd.min.js"></script>
     <script src="js/word-generator.js"></script>
     <script src="js/mammoth.browser.min.js"></script>
+    <script src="js/quill.min.js"></script>
     
     <script>
         let generator = null;
@@ -568,6 +613,11 @@
         let originalFileBuffer = null;
         let qaHistory = [];
         let currentIssues = [];
+        let quillEditor = null;
+        let quillOriginalParagraphs = [];
+        // Mapping: quillOriginalParagraphs[N] -> docxParagraphs[M]
+        let htmlToDocxMap = [];
+        let docxParagraphs = [];
         
         const STORAGE_KEY = 'deepseek_api_key';
         const INSTRUCTIONS_STORAGE_KEY = 'review_instructions';
@@ -675,19 +725,52 @@
                 
                 const htmlResult = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
                 originalHtmlContent = htmlResult.value;
-                
+
+                // Capture DOCX paragraph XML at upload time for reliable replacement later
+                const zip = await JSZip.loadAsync(arrayBuffer);
+                let docXmlText = await zip.file('word/document.xml').async('string');
+                const paraRegex = /<w:p[\s>]([\s\S]*?)<\/w:p>/g;
+                docxParagraphs = [];
+                let m;
+                while ((m = paraRegex.exec(docXmlText)) !== null) {
+                    const tr = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+                    let text = '', tm;
+                    while ((tm = tr.exec(m[1])) !== null) text += tm[1];
+                    docxParagraphs.push({ full: m[0], text: text.trim() });
+                }
+
                 const originalDiv = document.getElementById('codeContent');
-                originalDiv.innerHTML = `
-                    <div style="background: white; padding: 20px; border-radius: 8px;">
-                        <div style="border-bottom: 2px solid #2e7d32; margin-bottom: 20px; padding-bottom: 10px;">
-                            <span style="font-size: 12px; color: #2e7d32;">📄 合同原文</span>
-                            <span style="font-size: 12px; color: #999; margin-left: 10px;">${new Date().toLocaleString()}</span>
-                        </div>
-                        <div class="original-contract">
-                            ${originalHtmlContent || `<pre style="white-space: pre-wrap;">${escapeHtml(originalPlainText)}</pre>`}
-                        </div>
-                    </div>
-                `;
+                originalDiv.innerHTML = '';
+
+                // Build mapping: match each HTML paragraph to its DOCX paragraph
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = originalHtmlContent || originalPlainText;
+                const htmlParas = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, li'))
+                    .map(el => el.textContent.trim())
+                    .filter(t => t.length > 0);
+
+                htmlToDocxMap = [];
+                const usedDocx = new Set();
+                for (let hi = 0; hi < htmlParas.length; hi++) {
+                    const key = htmlParas[hi].replace(/\s+/g, '').substring(0, 80);
+                    let bestIdx = -1, bestScore = 0;
+                    for (let di = 0; di < docxParagraphs.length; di++) {
+                        if (usedDocx.has(di)) continue;
+                        const clean = docxParagraphs[di].text.replace(/\s+/g, '');
+                        if (clean.includes(key)) {
+                            const s = key.length / Math.max(1, clean.length);
+                            if (s > bestScore && s > 0.2) { bestScore = s; bestIdx = di; }
+                        }
+                    }
+                    if (bestIdx >= 0) {
+                        usedDocx.add(bestIdx);
+                        htmlToDocxMap.push(bestIdx);
+                    } else {
+                        htmlToDocxMap.push(-1);
+                    }
+                }
+
+                initQuillEditor(originalHtmlContent || originalPlainText);
                 
                 updateStatus(`✅ 合同提取成功，共 ${originalPlainText.length} 字符，点击审核`, 'success');
                 document.getElementById('checkBtn').disabled = false;
@@ -697,6 +780,43 @@
             }
         }
         
+        function initQuillEditor(htmlContent) {
+            if (quillEditor) {
+                quillEditor.destroy();
+                quillEditor = null;
+            }
+            // Save original paragraphs for downloadEditedDoc matching
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlContent;
+            quillOriginalParagraphs = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, li'))
+                .map(el => el.textContent.trim())
+                .filter(t => t.length > 0);
+            if (quillOriginalParagraphs.length === 0) {
+                quillOriginalParagraphs = htmlContent.split('\n').map(s => s.trim()).filter(t => t.length > 0);
+            }
+
+            const codeContent = document.getElementById('codeContent');
+            codeContent.innerHTML = '';
+            const editorDiv = document.createElement('div');
+            editorDiv.id = 'quillEditorContainer';
+            codeContent.appendChild(editorDiv);
+            quillEditor = new Quill('#quillEditorContainer', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'header': [1, 2, 3, false] }],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['clean']
+                    ]
+                },
+                placeholder: '合同内容将显示在这里，可直接编辑...'
+            });
+            quillEditor.clipboard.dangerouslyPasteHTML(htmlContent);
+            document.getElementById('downloadEditedBtn').disabled = false;
+        }
+
         function updateStatus(message, type = 'info') {
             const statusDiv = document.getElementById('status');
             statusDiv.innerHTML = message;
@@ -930,6 +1050,90 @@
             }
         }
         
+        async function downloadEditedDoc() {
+            if (!quillEditor || !originalFileBuffer) {
+                updateStatus("⚠️ 请先上传合同文件", 'error');
+                return;
+            }
+            try {
+                const html = quillEditor.root.innerHTML;
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                const editedTexts = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, li'))
+                    .map(el => el.textContent.trim())
+                    .filter(t => t.length > 0);
+
+                // Use pre-built mapping to find changed paragraphs
+                const changed = [];
+                for (let i = 0; i < Math.max(editedTexts.length, quillOriginalParagraphs.length); i++) {
+                    const oldT = (quillOriginalParagraphs[i] || '').replace(/\s+/g, '');
+                    const newT = (editedTexts[i] || '').replace(/\s+/g, '');
+                    if (oldT !== newT && quillOriginalParagraphs[i]) {
+                        const docxIdx = htmlToDocxMap[i];
+                        if (docxIdx >= 0 && docxIdx < docxParagraphs.length) {
+                            changed.push({ docxIdx, newText: editedTexts[i] });
+                        }
+                    }
+                }
+
+                if (changed.length === 0) {
+                    updateStatus("⚠️ 未检测到修改内容", 'info');
+                    return;
+                }
+
+                // Load fresh copy of DOCX
+                const zip = await JSZip.loadAsync(originalFileBuffer);
+                let docXmlText = await zip.file('word/document.xml').async('string');
+
+                const esc = (s) => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+                // Apply changes in reverse order using pre-built mapping
+                changed.sort((a, b) => b.docxIdx - a.docxIdx);
+                for (const c of changed) {
+                    const para = docxParagraphs[c.docxIdx];
+                    if (!para) continue;
+                    const pos = docXmlText.indexOf(para.full);
+                    if (pos === -1) continue;
+
+                    // Replace text in each <w:t> while preserving all XML formatting
+                    const oldXml = para.full;
+                    const wtRegex = /(<w:t[^>]*>)([^<]*)(<\/w:t>)/g;
+                    const runs = [];
+                    let wtMatch;
+                    while ((wtMatch = wtRegex.exec(oldXml)) !== null) {
+                        runs.push(wtMatch[0]);
+                    }
+
+                    if (runs.length === 0) continue;
+
+                    // Put all new text in first <w:t>, clear the rest
+                    let newXml = oldXml;
+                    for (let ri = 0; ri < runs.length; ri++) {
+                        const replacement = ri === 0
+                            ? runs[ri].replace(/(<w:t[^>]*>)([^<]*)(<\/w:t>)/, `$1${esc(c.newText)}$3`)
+                            : runs[ri].replace(/(<w:t[^>]*>)([^<]*)(<\/w:t>)/, '$1$3');
+                        newXml = newXml.replace(runs[ri], replacement);
+                    }
+
+                    docXmlText = docXmlText.substring(0, pos) + newXml + docXmlText.substring(pos + para.full.length);
+                }
+
+                zip.file('word/document.xml', docXmlText);
+                const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.href = url;
+                link.download = `合同_修改版_${new Date().toISOString().slice(0, 19)}.docx`;
+                link.click();
+                URL.revokeObjectURL(url);
+                updateStatus(`✅ 修改后的合同下载成功！已替换 ${changed.length} 处内容`, 'success');
+            } catch (error) {
+                console.error("下载修改版失败:", error);
+                updateStatus(`❔ 下载修改版失败: ${error.message}`, 'error');
+            }
+        }
+
         async function downloadDoc() {
             if (!currentDocBlob) { updateStatus("⚠️ 请先完成合同审核", 'error'); return; }
             try {
@@ -1007,10 +1211,19 @@ ${userInstructions}`;
             document.getElementById('previewContent').innerHTML = `<div style="text-align: center; color: #999; padding: 40px;">📄 上传合同文件后点击"开始审核"<br>AI将自动识别问题并用红色加粗标记</div>`;
             document.getElementById('summaryCard').style.display = 'none';
             document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('downloadEditedBtn').disabled = true;
             document.getElementById('askBtn').disabled = true;
             currentDocBlob = null;
+            quillOriginalParagraphs = [];
+            htmlToDocxMap = [];
+            docxParagraphs = [];
             qaHistory = [];
             updateQaHistory();
+            if (quillEditor) {
+                quillEditor.destroy();
+                quillEditor = null;
+            }
+            document.getElementById('codeContent').innerHTML = `<div style="color: #888; text-align: center; padding: 40px;">等待合同上传...</div>`;
             updateStatus("✅ 已清空预览", 'success');
         }
         

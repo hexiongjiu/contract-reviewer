@@ -1,11 +1,11 @@
 # Contributing / 贡献指南
 
-感谢你愿意为这个财务分析工具贡献代码！Thanks for considering contributing!
+感谢你愿意为这个 AI 合同审核工具贡献代码！Thanks for considering contributing!
 
 ## 如何贡献 / How to Contribute
 
 ### 🐛 报告 Bug / Report Bugs
-通过 [GitHub Issues](https://github.com/hexiongjiu/financial-report-optimizer/issues) 提交，请尽量包含：
+通过 [GitHub Issues](https://github.com/hexiongjiu/contract-reviewer/issues) 提交，请尽量包含：
 - 复现步骤 / Steps to reproduce
 - 预期行为 vs 实际行为 / Expected vs actual behavior
 - 浏览器版本 / Browser version
