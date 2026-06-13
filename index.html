@@ -715,8 +715,7 @@
         let hoverOptimizeButton = null;
         let hoveredOptimizeParagraph = null;
         let isHoveringOptimizeButton = false;
-        let pendingOptimizationParagraph = null;
-        let pendingOptimizationOriginalText = '';
+        let pendingOptimization = null;
         let pendingOptimizedText = '';
         
         const STORAGE_KEY = 'deepseek_api_key';
@@ -1340,8 +1339,8 @@
                         </div>
                     </div>
                     <div class="optimization-actions">
-                        <button type="button" onclick="closeOptimizationPreview()">取消</button>
-                        <button type="button" onclick="applyOptimizedParagraph()">应用优化</button>
+                        <button type="button" class="optimization-cancel-btn" onclick="closeOptimizationPreview()">取消</button>
+                        <button type="button" class="optimization-apply-btn" onclick="applyOptimizedParagraph()">应用</button>
                     </div>
                 </div>
             `;
@@ -1349,46 +1348,49 @@
             return mask;
         }
 
+        function normalizeOptimizedParagraphText(text) {
+            return (text || '').replace(/\s*\n+\s*/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+
         function showOptimizationPreview(originalText, optimizedText) {
             const mask = ensureOptimizationModal();
-            pendingOptimizationParagraph = hoveredOptimizeParagraph;
-            pendingOptimizationOriginalText = originalText;
-            pendingOptimizedText = optimizedText;
+            const normalizedText = normalizeOptimizedParagraphText(optimizedText);
+            pendingOptimization = { paragraph: hoveredOptimizeParagraph, originalText, optimizedText: normalizedText };
+            pendingOptimizedText = normalizedText;
             document.getElementById('optimizationOriginalText').textContent = originalText || '';
-            document.getElementById('optimizationNewText').textContent = optimizedText || '';
+            document.getElementById('optimizationNewText').textContent = normalizedText;
             mask.style.display = 'flex';
         }
 
         function closeOptimizationPreview() {
             const mask = document.getElementById('optimizationModalMask');
             if (mask) mask.style.display = 'none';
+            pendingOptimization = null;
             pendingOptimizedText = '';
-            pendingOptimizationParagraph = null;
-            pendingOptimizationOriginalText = '';
         }
 
         function applyOptimizedParagraph() {
-            if (!quillEditor || !pendingOptimizationParagraph || !pendingOptimizedText) {
+            if (!quillEditor || !pendingOptimization || !pendingOptimization.paragraph || !pendingOptimization.optimizedText) {
                 updateStatus("❌ 没有可应用的优化内容", 'error');
                 return;
             }
-            if (!quillEditor.root || !quillEditor.root.contains(pendingOptimizationParagraph)) {
+            if (!quillEditor.root || !quillEditor.root.contains(pendingOptimization.paragraph)) {
                 updateStatus("❌ 当前段落已不存在", 'error');
                 return;
             }
-            if (getParagraphText(pendingOptimizationParagraph) !== pendingOptimizationOriginalText) {
+            if (getParagraphText(pendingOptimization.paragraph) !== pendingOptimization.originalText) {
                 updateStatus("❌ 当前段落内容已变化，请重新优化", 'error');
                 return;
             }
 
-            const optimizedText = pendingOptimizedText.replace(/\s*\n+\s*/g, ' ').replace(/\s+/g, ' ').trim();
+            const optimizedText = pendingOptimization.optimizedText;
             if (!optimizedText) {
                 updateStatus("❌ 优化内容为空", 'error');
                 return;
             }
 
             try {
-                const blot = Quill.find(pendingOptimizationParagraph);
+                const blot = Quill.find(pendingOptimization.paragraph);
                 if (!blot) throw new Error('当前段落已不存在');
                 const index = quillEditor.getIndex(blot);
                 const length = Math.max(0, blot.length() - 1);
