@@ -1575,6 +1575,10 @@ ${userInstructions}`;
             docxParagraphs = [];
             qaHistory = [];
             updateQaHistory();
+            hoveredOptimizeParagraph = null;
+            pendingOptimizedText = '';
+            hideHoverOptimizeButton();
+            closeOptimizationPreview();
             if (quillEditor) {
                 quillEditor.destroy();
                 quillEditor = null;
