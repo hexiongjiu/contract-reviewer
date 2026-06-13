@@ -1316,6 +1316,70 @@
                 }
             }
         }
+
+        function ensureOptimizationModal() {
+            let mask = document.getElementById('optimizationModalMask');
+            if (mask) return mask;
+
+            mask = document.createElement('div');
+            mask.id = 'optimizationModalMask';
+            mask.className = 'optimization-modal-mask';
+            mask.innerHTML = `
+                <div class="optimization-modal">
+                    <h3>AI优化预览</h3>
+                    <div class="optimization-compare">
+                        <div class="optimization-block">
+                            <h4>原文</h4>
+                            <div id="optimizationOriginalText" class="optimization-text"></div>
+                        </div>
+                        <div class="optimization-block">
+                            <h4>优化后</h4>
+                            <div id="optimizationNewText" class="optimization-text"></div>
+                        </div>
+                    </div>
+                    <div class="optimization-actions">
+                        <button type="button" onclick="closeOptimizationPreview()">取消</button>
+                        <button type="button" onclick="applyOptimizedParagraph()">应用优化</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(mask);
+            return mask;
+        }
+
+        function showOptimizationPreview(originalText, optimizedText) {
+            const mask = ensureOptimizationModal();
+            document.getElementById('optimizationOriginalText').textContent = originalText || '';
+            document.getElementById('optimizationNewText').textContent = optimizedText || '';
+            mask.style.display = 'flex';
+        }
+
+        function closeOptimizationPreview() {
+            const mask = document.getElementById('optimizationModalMask');
+            if (mask) mask.style.display = 'none';
+            pendingOptimizedText = '';
+        }
+
+        function applyOptimizedParagraph() {
+            if (!quillEditor || !hoveredOptimizeParagraph || !pendingOptimizedText) {
+                updateStatus("❌ 没有可应用的优化内容", 'error');
+                return;
+            }
+
+            const blot = Quill.find(hoveredOptimizeParagraph);
+            if (!blot) {
+                updateStatus("❌ 当前段落已不存在", 'error');
+                return;
+            }
+
+            const index = quillEditor.getIndex(blot);
+            const length = Math.max(0, blot.length() - 1);
+            quillEditor.deleteText(index, length, 'user');
+            quillEditor.insertText(index, pendingOptimizedText, 'user');
+            closeOptimizationPreview();
+            hideHoverOptimizeButton();
+            updateStatus("✅ 已应用段落优化", 'success');
+        }
         
         async function downloadEditedDoc() {
             if (!quillEditor || !originalFileBuffer) {
