@@ -911,6 +911,7 @@
                 placeholder: '合同内容将显示在这里，可直接编辑...'
             });
             quillEditor.clipboard.dangerouslyPasteHTML(htmlContent);
+            initHoverOptimization();
             document.getElementById('downloadEditedBtn').disabled = false;
         }
 
@@ -1145,6 +1146,55 @@
             } finally {
                 hideLoading('askBtn', '💬 提问');
             }
+        }
+
+        function initHoverOptimization() {
+            if (!quillEditor) return;
+
+            if (!hoverOptimizeButton) {
+                hoverOptimizeButton = document.createElement('button');
+                hoverOptimizeButton.type = 'button';
+                hoverOptimizeButton.className = 'hover-optimize-btn';
+                hoverOptimizeButton.textContent = 'AI优化';
+                hoverOptimizeButton.addEventListener('click', () => {
+                    if (typeof optimizeHoveredParagraph === 'function') optimizeHoveredParagraph();
+                });
+                document.body.appendChild(hoverOptimizeButton);
+            }
+
+            const editor = quillEditor.root;
+            editor.removeEventListener('mousemove', handleEditorMouseMove);
+            editor.removeEventListener('mouseleave', hideHoverOptimizeButton);
+            editor.addEventListener('mousemove', handleEditorMouseMove);
+            editor.addEventListener('mouseleave', hideHoverOptimizeButton);
+        }
+
+        function handleEditorMouseMove(event) {
+            const paragraph = event.target.closest('p, h1, h2, h3, li');
+            if (!paragraph || !quillEditor || !quillEditor.root.contains(paragraph)) {
+                hideHoverOptimizeButton();
+                return;
+            }
+
+            const text = getParagraphText(paragraph);
+            if (!text) {
+                hideHoverOptimizeButton();
+                return;
+            }
+
+            hoveredOptimizeParagraph = paragraph;
+            const rect = paragraph.getBoundingClientRect();
+            hoverOptimizeButton.style.left = `${Math.min(rect.right + 8, window.innerWidth - 90)}px`;
+            hoverOptimizeButton.style.top = `${Math.max(rect.top, 8)}px`;
+            hoverOptimizeButton.style.display = 'block';
+        }
+
+        function hideHoverOptimizeButton() {
+            if (hoverOptimizeButton) hoverOptimizeButton.style.display = 'none';
+        }
+
+        function getParagraphText(element) {
+            return element ? element.textContent.replace(/\s+/g, ' ').trim() : '';
         }
         
         async function downloadEditedDoc() {
