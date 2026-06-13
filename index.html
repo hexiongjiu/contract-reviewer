@@ -1278,6 +1278,7 @@
             currentIssues.forEach(issue => {
                 const issueText = `${issue.problem || ''} ${issue.suggestion || ''}`;
                 const score = Math.max(
+                    calculateOverlapScore(text, issue.sourceText || ''),
                     calculateOverlapScore(text, issue.problem || ''),
                     calculateOverlapScore(text, issueText)
                 );
@@ -1577,11 +1578,24 @@ ${userInstructions}`;
                 let htmlContent = data.choices[0].message.content.replace(/```html\n?/g, '').replace(/```\n?/g, '').trim();
 
                 const issues = [];
-                const noteRegex = /<div class="issue-annotation">.*?<strong>⚠️ 问题：<\/strong>(.*?)<br>.*?<strong>💡 建议：<\/strong>(.*?)<\/div>/gs;
-                let match;
-                while ((match = noteRegex.exec(htmlContent)) !== null) {
-                    issues.push({ problem: match[1].trim(), suggestion: match[2].trim() });
-                }
+                const issueTempDiv = document.createElement('div');
+                issueTempDiv.innerHTML = htmlContent;
+                issueTempDiv.querySelectorAll('.issue-annotation').forEach(annotation => {
+                    const text = annotation.innerHTML;
+                    const match = text.match(/<strong>⚠️ 问题：<\/strong>([\s\S]*?)<br>\s*<strong>💡 建议：<\/strong>([\s\S]*)/);
+                    if (!match) return;
+
+                    let sourceEl = annotation.previousElementSibling;
+                    while (sourceEl && !['P', 'LI', 'H1', 'H2', 'H3'].includes(sourceEl.tagName)) {
+                        sourceEl = sourceEl.previousElementSibling;
+                    }
+
+                    issues.push({
+                        problem: match[1].replace(/<[^>]+>/g, '').trim(),
+                        suggestion: match[2].replace(/<[^>]+>/g, '').trim(),
+                        sourceText: sourceEl ? sourceEl.textContent.trim() : ''
+                    });
+                });
 
                 // 保存 class 版本给 DOCX 生成用
                 const classBasedHtml = htmlContent;
