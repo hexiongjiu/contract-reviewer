@@ -715,6 +715,8 @@
         let hoverOptimizeButton = null;
         let hoveredOptimizeParagraph = null;
         let isHoveringOptimizeButton = false;
+        let pendingOptimizationParagraph = null;
+        let pendingOptimizationOriginalText = '';
         let pendingOptimizedText = '';
         
         const STORAGE_KEY = 'deepseek_api_key';
@@ -1349,6 +1351,9 @@
 
         function showOptimizationPreview(originalText, optimizedText) {
             const mask = ensureOptimizationModal();
+            pendingOptimizationParagraph = hoveredOptimizeParagraph;
+            pendingOptimizationOriginalText = originalText;
+            pendingOptimizedText = optimizedText;
             document.getElementById('optimizationOriginalText').textContent = originalText || '';
             document.getElementById('optimizationNewText').textContent = optimizedText || '';
             mask.style.display = 'flex';
@@ -1358,24 +1363,42 @@
             const mask = document.getElementById('optimizationModalMask');
             if (mask) mask.style.display = 'none';
             pendingOptimizedText = '';
+            pendingOptimizationParagraph = null;
+            pendingOptimizationOriginalText = '';
         }
 
         function applyOptimizedParagraph() {
-            if (!quillEditor || !hoveredOptimizeParagraph || !pendingOptimizedText) {
+            if (!quillEditor || !pendingOptimizationParagraph || !pendingOptimizedText) {
                 updateStatus("❌ 没有可应用的优化内容", 'error');
                 return;
             }
-
-            const blot = Quill.find(hoveredOptimizeParagraph);
-            if (!blot) {
+            if (!quillEditor.root || !quillEditor.root.contains(pendingOptimizationParagraph)) {
                 updateStatus("❌ 当前段落已不存在", 'error');
                 return;
             }
+            if (getParagraphText(pendingOptimizationParagraph) !== pendingOptimizationOriginalText) {
+                updateStatus("❌ 当前段落内容已变化，请重新优化", 'error');
+                return;
+            }
 
-            const index = quillEditor.getIndex(blot);
-            const length = Math.max(0, blot.length() - 1);
-            quillEditor.deleteText(index, length, 'user');
-            quillEditor.insertText(index, pendingOptimizedText, 'user');
+            const optimizedText = pendingOptimizedText.replace(/\s*\n+\s*/g, ' ').replace(/\s+/g, ' ').trim();
+            if (!optimizedText) {
+                updateStatus("❌ 优化内容为空", 'error');
+                return;
+            }
+
+            try {
+                const blot = Quill.find(pendingOptimizationParagraph);
+                if (!blot) throw new Error('当前段落已不存在');
+                const index = quillEditor.getIndex(blot);
+                const length = Math.max(0, blot.length() - 1);
+                quillEditor.deleteText(index, length, 'user');
+                quillEditor.insertText(index, optimizedText, 'user');
+            } catch (error) {
+                updateStatus(`❌ 应用优化失败: ${error.message}`, 'error');
+                return;
+            }
+
             closeOptimizationPreview();
             hideHoverOptimizeButton();
             updateStatus("✅ 已应用段落优化", 'success');
