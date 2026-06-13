@@ -1269,8 +1269,10 @@
                 ? `问题：${matchedIssue.problem || '无'}\n建议：${matchedIssue.suggestion || '无'}`
                 : '未匹配到该段落的具体审核问题，请基于合同上下文对该段落进行专业、审慎、合规的优化。';
 
-            hoverOptimizeButton.disabled = true;
-            hoverOptimizeButton.textContent = '优化中...';
+            if (hoverOptimizeButton) {
+                hoverOptimizeButton.disabled = true;
+                hoverOptimizeButton.textContent = '优化中...';
+            }
             updateStatus("⏳ 正在优化当前段落...", 'info');
 
             try {
@@ -1290,13 +1292,16 @@
 
                 if (!response.ok) throw new Error('API请求失败');
                 const data = await response.json();
-                let optimizedText = data.choices[0].message.content;
+                let optimizedText = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+                if (!optimizedText) throw new Error('AI未返回有效优化内容');
                 optimizedText = optimizedText
                     .replace(/^```[\s\S]*?\n/, '')
                     .replace(/```$/g, '')
                     .replace(/^优化后[:：]?\s*/i, '')
                     .trim();
                 if (!optimizedText) throw new Error('AI未返回有效优化内容');
+                if (!quillEditor || !quillEditor.root || !quillEditor.root.contains(paragraph)) throw new Error('当前段落已不存在');
+                if (typeof showOptimizationPreview !== 'function') throw new Error('优化预览组件未初始化');
 
                 pendingOptimizedText = optimizedText;
                 showOptimizationPreview(originalText, optimizedText);
@@ -1304,8 +1309,10 @@
             } catch (error) {
                 updateStatus(`❌ 段落优化失败: ${error.message}`, 'error');
             } finally {
-                hoverOptimizeButton.disabled = false;
-                hoverOptimizeButton.textContent = 'AI优化';
+                if (hoverOptimizeButton) {
+                    hoverOptimizeButton.disabled = false;
+                    hoverOptimizeButton.textContent = 'AI优化';
+                }
             }
         }
         
