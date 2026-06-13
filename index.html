@@ -714,6 +714,7 @@
         let docxParagraphs = [];
         let hoverOptimizeButton = null;
         let hoveredOptimizeParagraph = null;
+        let isHoveringOptimizeButton = false;
         let pendingOptimizedText = '';
         
         const STORAGE_KEY = 'deepseek_api_key';
@@ -1159,14 +1160,21 @@
                 hoverOptimizeButton.addEventListener('click', () => {
                     if (typeof optimizeHoveredParagraph === 'function') optimizeHoveredParagraph();
                 });
+                hoverOptimizeButton.addEventListener('mouseenter', () => {
+                    isHoveringOptimizeButton = true;
+                });
+                hoverOptimizeButton.addEventListener('mouseleave', () => {
+                    isHoveringOptimizeButton = false;
+                    hideHoverOptimizeButton();
+                });
                 document.body.appendChild(hoverOptimizeButton);
             }
 
             const editor = quillEditor.root;
             editor.removeEventListener('mousemove', handleEditorMouseMove);
-            editor.removeEventListener('mouseleave', hideHoverOptimizeButton);
+            editor.removeEventListener('mouseleave', handleEditorMouseLeave);
             editor.addEventListener('mousemove', handleEditorMouseMove);
-            editor.addEventListener('mouseleave', hideHoverOptimizeButton);
+            editor.addEventListener('mouseleave', handleEditorMouseLeave);
         }
 
         function handleEditorMouseMove(event) {
@@ -1184,13 +1192,20 @@
 
             hoveredOptimizeParagraph = paragraph;
             const rect = paragraph.getBoundingClientRect();
-            hoverOptimizeButton.style.left = `${Math.min(rect.right + 8, window.innerWidth - 90)}px`;
-            hoverOptimizeButton.style.top = `${Math.max(rect.top, 8)}px`;
+            hoverOptimizeButton.style.left = `${Math.max(8, Math.min(rect.right + 8, window.innerWidth - 90))}px`;
+            hoverOptimizeButton.style.top = `${Math.max(8, Math.min(rect.top, window.innerHeight - 40))}px`;
             hoverOptimizeButton.style.display = 'block';
         }
 
-        function hideHoverOptimizeButton() {
+        function handleEditorMouseLeave() {
+            setTimeout(() => {
+                if (!isHoveringOptimizeButton) hideHoverOptimizeButton();
+            }, 80);
+        }
+
+        function hideHoverOptimizeButton(clearTarget = true) {
             if (hoverOptimizeButton) hoverOptimizeButton.style.display = 'none';
+            if (clearTarget) hoveredOptimizeParagraph = null;
         }
 
         function getParagraphText(element) {
