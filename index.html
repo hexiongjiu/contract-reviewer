@@ -410,12 +410,14 @@
             position: fixed;
             z-index: 1000;
             display: none;
-            padding: 6px 12px;
-            border-radius: 16px;
+            min-width: 88px;
+            min-height: 34px;
+            padding: 8px 14px;
+            border-radius: 18px;
             border: none;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(0,0,0,0.18);
@@ -477,6 +479,18 @@
             line-height: 1.7;
             font-size: 14px;
             color: #333;
+        }
+
+        textarea.optimization-text {
+            width: 100%;
+            min-height: 180px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            resize: vertical;
+            font-family: inherit;
+            background: white;
+            box-sizing: border-box;
         }
 
         .optimization-actions {
@@ -1201,8 +1215,10 @@
 
             hoveredOptimizeParagraph = paragraph;
             const rect = paragraph.getBoundingClientRect();
-            hoverOptimizeButton.style.left = `${Math.max(8, Math.min(rect.right + 8, window.innerWidth - 90))}px`;
-            hoverOptimizeButton.style.top = `${Math.max(8, Math.min(rect.top, window.innerHeight - 40))}px`;
+            const buttonWidth = 96;
+            const buttonHeight = 38;
+            hoverOptimizeButton.style.left = `${Math.max(8, Math.min(rect.right - buttonWidth - 8, window.innerWidth - buttonWidth - 8))}px`;
+            hoverOptimizeButton.style.top = `${Math.max(8, Math.min(rect.top + 4, window.innerHeight - buttonHeight - 8))}px`;
             hoverOptimizeButton.style.display = 'block';
         }
 
@@ -1342,8 +1358,8 @@
                             <div id="optimizationOriginalText" class="optimization-text"></div>
                         </div>
                         <div class="optimization-block">
-                            <h4>优化后</h4>
-                            <div id="optimizationNewText" class="optimization-text"></div>
+                            <h4>优化后（可编辑）</h4>
+                            <textarea id="optimizationNewText" class="optimization-text"></textarea>
                         </div>
                     </div>
                     <div class="optimization-actions">
@@ -1366,7 +1382,7 @@
             pendingOptimization = { paragraph, originalText, optimizedText: normalizedText };
             pendingOptimizedText = normalizedText;
             document.getElementById('optimizationOriginalText').textContent = originalText || '';
-            document.getElementById('optimizationNewText').textContent = normalizedText;
+            document.getElementById('optimizationNewText').value = normalizedText;
             mask.style.display = 'flex';
         }
 
@@ -1391,7 +1407,7 @@
                 return;
             }
 
-            const optimizedText = pendingOptimization.optimizedText;
+            const optimizedText = normalizeOptimizedParagraphText(document.getElementById('optimizationNewText').value);
             if (!optimizedText) {
                 updateStatus("❌ 优化内容为空", 'error');
                 return;
