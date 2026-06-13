@@ -1211,6 +1211,109 @@
         function getParagraphText(element) {
             return element ? element.textContent.replace(/\s+/g, ' ').trim() : '';
         }
+
+        function normalizeForMatch(text) {
+            return (text || '')
+                .toLowerCase()
+                .replace(/[\s\u3000]+/g, '')
+                .replace(/[，。！？；：、,.!?;:"'“”‘’（）()【】\[\]《》<>]/g, '')
+                .trim();
+        }
+
+        function calculateOverlapScore(a, b) {
+            const normalizedA = normalizeForMatch(a);
+            const normalizedB = normalizeForMatch(b);
+            if (!normalizedA || !normalizedB) return 0;
+            if (normalizedA.includes(normalizedB) || normalizedB.includes(normalizedA)) {
+                return Math.min(normalizedA.length, normalizedB.length) / Math.max(normalizedA.length, normalizedB.length);
+            }
+
+            const shorter = normalizedA.length <= normalizedB.length ? normalizedA : normalizedB;
+            const longer = normalizedA.length > normalizedB.length ? normalizedA : normalizedB;
+            let matched = 0;
+            const used = new Set();
+            for (const char of shorter) {
+                const idx = longer.indexOf(char);
+                const key = `${char}:${idx}`;
+                if (idx >= 0 && !used.has(key)) {
+                    used.add(key);
+                    matched++;
+                }
+            }
+            return matched / Math.max(shorter.length, longer.length);
+        }
+
+        function findBestIssueForParagraph(text) {
+            if (!text || !Array.isArray(currentIssues) || currentIssues.length === 0) return null;
+            let bestIssue = null;
+            let bestScore = 0;
+            currentIssues.forEach(issue => {
+                const issueText = `${issue.problem || ''} ${issue.suggestion || ''}`;
+                const score = Math.max(
+                    calculateOverlapScore(text, issue.problem || ''),
+                    calculateOverlapScore(text, issueText)
+                );
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestIssue = issue;
+                }
+            });
+            return bestScore >= 0.12 ? bestIssue : null;
+        }
+
+        async function optimizeHoveredParagraph() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const model = document.getElementById('model').value;
+            const paragraph = hoveredOptimizeParagraph;
+            const originalText = getParagraphText(paragraph);
+
+            if (!apiKey) { updateStatus("❌ 请输入DeepSeek API Key", 'error'); return; }
+            if (!quillEditor || !paragraph || !originalText) { updateStatus("❌ 请先将鼠标悬停在要优化的段落上", 'error'); return; }
+
+            const matchedIssue = findBestIssueForParagraph(originalText);
+            const issueText = matchedIssue
+                ? `问题：${matchedIssue.problem || '无'}\n建议：${matchedIssue.suggestion || '无'}`
+                : '未匹配到该段落的具体审核问题，请基于合同上下文对该段落进行专业、审慎、合规的优化。';
+
+            hoverOptimizeButton.disabled = true;
+            hoverOptimizeButton.textContent = '优化中...';
+            updateStatus("⏳ 正在优化当前段落...", 'info');
+
+            try {
+                const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({
+                        model,
+                        messages: [
+                            { role: 'system', content: '你是专业的合同文本优化助手。只输出优化后的单个段落纯文本，不要解释，不要使用Markdown，不要添加标题，不要输出代码块。' },
+                            { role: 'user', content: `合同上下文：\n${originalPlainText.substring(0, 6000)}\n\n审核意见：\n${issueText}\n\n请优化以下原段落：\n${originalText}` }
+                        ],
+                        temperature: 0.3,
+                        max_tokens: 1200
+                    })
+                });
+
+                if (!response.ok) throw new Error('API请求失败');
+                const data = await response.json();
+                let optimizedText = data.choices[0].message.content;
+                optimizedText = optimizedText
+                    .replace(/^```[\s\S]*?\n/, '')
+                    .replace(/```$/g, '')
+                    .replace(/^优化后[:：]?\s*/i, '')
+                    .trim();
+                if (!optimizedText) throw new Error('AI未返回有效优化内容');
+
+                pendingOptimizedText = optimizedText;
+                showOptimizationPreview(originalText, optimizedText);
+                updateStatus("✅ 段落优化完成，请确认是否应用", 'success');
+            } catch (error) {
+                updateStatus(`❌ 段落优化失败: ${error.message}`, 'error');
+            } finally {
+                hoverOptimizeButton.disabled = false;
+                hoverOptimizeButton.textContent = 'AI优化';
+            }
+        }
         
         async function downloadEditedDoc() {
             if (!quillEditor || !originalFileBuffer) {
