@@ -1221,26 +1221,20 @@
         }
 
         function calculateOverlapScore(a, b) {
-            const normalizedA = normalizeForMatch(a);
-            const normalizedB = normalizeForMatch(b);
-            if (!normalizedA || !normalizedB) return 0;
-            if (normalizedA.includes(normalizedB) || normalizedB.includes(normalizedA)) {
-                return Math.min(normalizedA.length, normalizedB.length) / Math.max(normalizedA.length, normalizedB.length);
-            }
+            const left = normalizeForMatch(a);
+            const right = normalizeForMatch(b);
+            if (!left || !right) return 0;
+            if (left.includes(right) || right.includes(left)) return Math.min(left.length, right.length) / Math.max(left.length, right.length);
 
-            const shorter = normalizedA.length <= normalizedB.length ? normalizedA : normalizedB;
-            const longer = normalizedA.length > normalizedB.length ? normalizedA : normalizedB;
-            let matched = 0;
-            const used = new Set();
-            for (const char of shorter) {
-                const idx = longer.indexOf(char);
-                const key = `${char}:${idx}`;
-                if (idx >= 0 && !used.has(key)) {
-                    used.add(key);
-                    matched++;
-                }
+            const windowSize = Math.min(24, left.length, right.length);
+            if (windowSize < 4) return 0;
+
+            let matches = 0;
+            for (let i = 0; i <= left.length - windowSize; i++) {
+                const fragment = left.substring(i, i + windowSize);
+                if (right.includes(fragment)) matches++;
             }
-            return matched / Math.max(shorter.length, longer.length);
+            return matches / Math.max(1, left.length - windowSize + 1);
         }
 
         function findBestIssueForParagraph(text) {
@@ -1258,7 +1252,7 @@
                     bestIssue = issue;
                 }
             });
-            return bestScore >= 0.12 ? bestIssue : null;
+            return bestScore >= 0.08 ? bestIssue : null;
         }
 
         async function optimizeHoveredParagraph() {
