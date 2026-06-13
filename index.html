@@ -493,6 +493,15 @@
             box-sizing: border-box;
         }
 
+        .optimization-suggestion {
+            margin-bottom: 16px;
+            border: 1px solid #ffe0b2;
+            border-left: 4px solid #ff9800;
+            border-radius: 8px;
+            background: #fff8e1;
+            padding: 12px;
+        }
+
         .optimization-actions {
             display: flex;
             justify-content: flex-end;
@@ -1330,7 +1339,7 @@
                 if (typeof showOptimizationPreview !== 'function') throw new Error('优化预览组件未初始化');
 
                 pendingOptimizedText = optimizedText;
-                showOptimizationPreview(originalText, optimizedText, paragraph);
+                showOptimizationPreview(originalText, optimizedText, paragraph, matchedIssue);
                 updateStatus("✅ 段落优化完成，请确认是否应用", 'success');
             } catch (error) {
                 updateStatus(`❌ 段落优化失败: ${error.message}`, 'error');
@@ -1352,6 +1361,10 @@
             mask.innerHTML = `
                 <div class="optimization-modal">
                     <h3>AI优化预览</h3>
+                    <div class="optimization-suggestion">
+                        <h4>左侧审核建议</h4>
+                        <div id="optimizationSuggestionText" class="optimization-text"></div>
+                    </div>
                     <div class="optimization-compare">
                         <div class="optimization-block">
                             <h4>原文</h4>
@@ -1376,12 +1389,18 @@
             return (text || '').replace(/\s*\n+\s*/g, ' ').replace(/\s+/g, ' ').trim();
         }
 
-        function showOptimizationPreview(originalText, optimizedText, paragraph = hoveredOptimizeParagraph) {
+        function formatOptimizationSuggestion(issue) {
+            if (!issue) return '未匹配到审核建议';
+            return `问题：${issue.problem || '无'}\n建议：${issue.suggestion || '无'}`;
+        }
+
+        function showOptimizationPreview(originalText, optimizedText, paragraph = hoveredOptimizeParagraph, matchedIssue = null) {
             const mask = ensureOptimizationModal();
             const normalizedText = normalizeOptimizedParagraphText(optimizedText);
             pendingOptimization = { paragraph, originalText, optimizedText: normalizedText };
             pendingOptimizedText = normalizedText;
             document.getElementById('optimizationOriginalText').textContent = originalText || '';
+            document.getElementById('optimizationSuggestionText').textContent = formatOptimizationSuggestion(matchedIssue);
             document.getElementById('optimizationNewText').value = normalizedText;
             mask.style.display = 'flex';
         }
