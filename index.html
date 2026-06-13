@@ -1306,7 +1306,7 @@
                 if (typeof showOptimizationPreview !== 'function') throw new Error('优化预览组件未初始化');
 
                 pendingOptimizedText = optimizedText;
-                showOptimizationPreview(originalText, optimizedText);
+                showOptimizationPreview(originalText, optimizedText, paragraph);
                 updateStatus("✅ 段落优化完成，请确认是否应用", 'success');
             } catch (error) {
                 updateStatus(`❌ 段落优化失败: ${error.message}`, 'error');
@@ -1352,10 +1352,10 @@
             return (text || '').replace(/\s*\n+\s*/g, ' ').replace(/\s+/g, ' ').trim();
         }
 
-        function showOptimizationPreview(originalText, optimizedText) {
+        function showOptimizationPreview(originalText, optimizedText, paragraph = hoveredOptimizeParagraph) {
             const mask = ensureOptimizationModal();
             const normalizedText = normalizeOptimizedParagraphText(optimizedText);
-            pendingOptimization = { paragraph: hoveredOptimizeParagraph, originalText, optimizedText: normalizedText };
+            pendingOptimization = { paragraph, originalText, optimizedText: normalizedText };
             pendingOptimizedText = normalizedText;
             document.getElementById('optimizationOriginalText').textContent = originalText || '';
             document.getElementById('optimizationNewText').textContent = normalizedText;
