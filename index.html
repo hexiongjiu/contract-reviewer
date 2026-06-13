@@ -1301,6 +1301,7 @@
                     .trim();
                 if (!optimizedText) throw new Error('AI未返回有效优化内容');
                 if (!quillEditor || !quillEditor.root || !quillEditor.root.contains(paragraph)) throw new Error('当前段落已不存在');
+                if (getParagraphText(paragraph) !== originalText) throw new Error('当前段落内容已变化，请重新优化');
                 if (typeof showOptimizationPreview !== 'function') throw new Error('优化预览组件未初始化');
 
                 pendingOptimizedText = optimizedText;
