@@ -879,11 +879,19 @@
             }
         }
         
-        function initQuillEditor(htmlContent) {
-            if (quillEditor) {
+        function cleanupQuillEditor() {
+            if (!quillEditor) return;
+            if (typeof quillEditor.destroy === 'function') {
                 quillEditor.destroy();
-                quillEditor = null;
+            } else if (quillEditor.root) {
+                quillEditor.root.removeEventListener('mousemove', handleEditorMouseMove);
+                quillEditor.root.removeEventListener('mouseleave', handleEditorMouseLeave);
             }
+            quillEditor = null;
+        }
+
+        function initQuillEditor(htmlContent) {
+            cleanupQuillEditor();
             // Save original paragraphs for downloadEditedDoc matching
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = htmlContent;
@@ -1579,10 +1587,7 @@ ${userInstructions}`;
             pendingOptimizedText = '';
             hideHoverOptimizeButton();
             closeOptimizationPreview();
-            if (quillEditor) {
-                quillEditor.destroy();
-                quillEditor = null;
-            }
+            cleanupQuillEditor();
             document.getElementById('codeContent').innerHTML = `<div style="color: #888; text-align: center; padding: 40px;">等待合同上传...</div>`;
             updateStatus("✅ 已清空预览", 'success');
         }
