@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - README 图片统一移动到 `pics/` 目录
 
+## [1.1.1] - 2026-06-13
+
+### Added
+- AI 优化原文：右侧原文段落悬停显示 AI 优化按钮，结合审核建议生成可编辑优化版本，确认后替换原文
+
 ## [1.1.0] - 2026-05-28
 
 ### Added
