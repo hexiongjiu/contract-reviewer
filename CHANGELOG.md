@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-15
+
+### Added
+- 民法典查询页，支持全文浏览、关键词/条号搜索、AI 咨询和快速定位条文
+- 合同审核意见下方展示 AI 核对后的相关民法典依据
+- AI 段落优化和合同问答支持参考相关民法典条文
+- 工具顶部与民法典查询页增加免责声明
+
+### Changed
+- README 图片统一移动到 `pics/` 目录
+
 ## [1.1.0] - 2026-05-28
 
 ### Added

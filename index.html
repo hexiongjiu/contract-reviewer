@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/quill.snow.css">
     <script src="js/jszip.min.js"></script>
+    <script src="js/civil-code-data.js"></script>
+    <script src="js/civil-code-evidence.js"></script>
     <style>
         /* 额外的样式 */
         .api-config {
@@ -278,6 +280,44 @@
 
         .contract-preview .issue-note strong {
             color: #bf360c;
+        }
+
+        .civil-code-evidence {
+            margin: 8px 0 10px 20px;
+            padding: 8px 10px;
+            background: #f1f8e9;
+            border-left: 3px solid #7cb342;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #33691e;
+        }
+
+        .civil-code-evidence summary {
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .civil-code-article {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #dcedc8;
+        }
+
+        .civil-code-article-title {
+            font-weight: 600;
+            color: #2e7d32;
+        }
+
+        .civil-code-article-title span, .civil-code-article-path {
+            color: #689f38;
+            font-weight: 400;
+        }
+
+        .civil-code-article-text {
+            margin-top: 4px;
+            line-height: 1.6;
+            color: #333;
+            white-space: pre-wrap;
         }
 
         .original-contract {
@@ -581,6 +621,17 @@
             margin-bottom: 20px;
         }
 
+        .disclaimer {
+            background: #fff7ed;
+            border-left: 4px solid #f59e0b;
+            color: #7c2d12;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 18px;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -596,6 +647,9 @@
                 <span style="font-size: 14px; background: #f5576c; color: white; padding: 4px 12px; border-radius: 20px;">智能问答版</span>
             </h1>
             <p class="subtitle">✨ 上传合同 | AI标注问题 | 针对合同提问</p>
+            <div class="disclaimer">
+                免责声明：本工具及民法典相关引用仅供学习、参考和辅助审阅，不构成法律意见或律师服务。AI 生成内容可能存在遗漏或偏差，民法典条款及法律适用请以国家法律法规官方发布渠道、权威专业网站或专业法律人士核查意见为准。
+            </div>
             
             <div class="api-config">
                 <h3>🔑 API 配置</h3>
@@ -671,6 +725,7 @@
                 <button class="download-btn" onclick="downloadDoc()" id="downloadBtn" disabled>💾 下载标注后合同</button>
                 <button class="download-btn" onclick="downloadEditedDoc()" id="downloadEditedBtn" disabled style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">✏️ 下载修改后合同</button>
                 <button onclick="clearPreview()">🗑️ 清空预览</button>
+                <button onclick="window.open('civil-code.html', '_blank')">📖 民法典查询</button>
             </div>
             <div id="status" class="status info">⏳ 请先上传合同文件，然后点击审核</div>
         </div>
@@ -740,6 +795,8 @@
         let isHoveringOptimizeButton = false;
         let pendingOptimization = null;
         let pendingOptimizedText = '';
+        let civilCodeArticles = null;
+        let civilCodeLoadPromise = null;
         
         const STORAGE_KEY = 'deepseek_api_key';
         const INSTRUCTIONS_STORAGE_KEY = 'review_instructions';
@@ -994,6 +1051,77 @@
             issueListDiv.innerHTML = html;
         }
         
+        async function loadCivilCodeArticles() {
+            if (civilCodeArticles) return civilCodeArticles;
+            if (Array.isArray(window.CIVIL_CODE_ARTICLES)) {
+                civilCodeArticles = window.CIVIL_CODE_ARTICLES;
+                return civilCodeArticles;
+            }
+            if (!civilCodeLoadPromise) {
+                civilCodeLoadPromise = fetch('data/civil-code.json')
+                    .then(response => response.ok ? response.json() : null)
+                    .then(data => {
+                        civilCodeArticles = data && Array.isArray(data.articlesIndex) ? data.articlesIndex : [];
+                        return civilCodeArticles;
+                    })
+                    .catch(() => {
+                        civilCodeArticles = [];
+                        return civilCodeArticles;
+                    });
+            }
+            return civilCodeLoadPromise;
+        }
+
+        async function verifyCivilCodeEvidenceForIssue(issue, candidates) {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const model = document.getElementById('model').value;
+            const candidateText = window.CivilCodeEvidence.formatCivilCodeEvidenceForPrompt(candidates);
+            const prompt = `请判断以下民法典候选条文中，哪些与合同审核意见直接相关。最多选择3条；如果都不直接相关，返回空数组。只输出JSON，不要解释。\n\n合同原文片段：\n${issue.sourceText || ''}\n\n审核问题：\n${issue.problem || ''}\n\n修改建议：\n${issue.suggestion || ''}\n\n候选条文：\n${candidateText}\n\n输出格式：{"selected":[{"articleNo":"第五百零六条","reason":"与该问题相关的简短原因"}]}`;
+            const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                    model,
+                    messages: [
+                        { role: 'system', content: '你是法律依据核对助手。只能从用户提供的候选法条中选择，不得编造法条。只输出JSON。' },
+                        { role: 'user', content: prompt }
+                    ],
+                    temperature: 0.1,
+                    max_tokens: 800
+                })
+            });
+            if (!response.ok) throw new Error('API请求失败');
+            const data = await response.json();
+            const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+            return window.CivilCodeEvidence.parseVerifiedCivilCodeSelection(content, candidates);
+        }
+
+        function appendCivilCodeEvidence(issues) {
+            if (!window.CivilCodeEvidence || !Array.isArray(civilCodeArticles) || civilCodeArticles.length === 0) return;
+            const annotations = document.querySelectorAll('#previewContent .issue-annotation');
+            annotations.forEach((annotation, index) => {
+                if (annotation.nextElementSibling && annotation.nextElementSibling.classList.contains('civil-code-evidence')) return;
+                const issue = issues[index];
+                if (!issue) return;
+                const candidates = window.CivilCodeEvidence.matchCivilCodeArticles(civilCodeArticles, issue, 10);
+                annotation.insertAdjacentHTML('afterend', window.CivilCodeEvidence.renderCivilCodeEvidenceState('loading', []));
+                const placeholder = annotation.nextElementSibling;
+                if (!candidates.length) {
+                    placeholder.outerHTML = window.CivilCodeEvidence.renderCivilCodeEvidenceState('empty', []);
+                    return;
+                }
+                verifyCivilCodeEvidenceForIssue(issue, candidates)
+                    .then(matches => {
+                        placeholder.outerHTML = matches.length
+                            ? window.CivilCodeEvidence.renderCivilCodeEvidence(matches)
+                            : window.CivilCodeEvidence.renderCivilCodeEvidenceState('empty', []);
+                    })
+                    .catch(() => {
+                        placeholder.outerHTML = window.CivilCodeEvidence.renderCivilCodeEvidenceState('error', []);
+                    });
+            });
+        }
+
         function updatePreview(annotatedHtml, issues) {
             const previewDiv = document.getElementById('previewContent');
             const downloadBtn = document.getElementById('downloadBtn');
@@ -1022,6 +1150,7 @@
             askBtn.disabled = false;
             qaHistory = [];
             updateQaHistory();
+            loadCivilCodeArticles().then(() => appendCivilCodeEvidence(issues));
         }
         
         async function generateAnnotatedDocx(annotatedHtml, issues) {
@@ -1139,6 +1268,7 @@
                 <div class="qa-item">
                     <div class="qa-question"><strong>❓ 用户：</strong> ${escapeHtml(item.question)}</div>
                     <div class="qa-answer"><strong>🤖 AI：</strong> ${escapeHtml(item.answer).replace(/\n/g, '<br>')}</div>
+                    ${window.CivilCodeEvidence && item.civilCodeMatches ? window.CivilCodeEvidence.renderCivilCodeEvidence(item.civilCodeMatches) : ''}
                 </div>
             `).join('');
             historyDiv.scrollTop = historyDiv.scrollHeight;
@@ -1155,7 +1285,19 @@
             
             showLoading('askBtn');
             try {
-                const systemPrompt = `你是一个专业的合同审核专家。请根据以下合同内容回答用户的问题，使用纯文本格式，不要使用任何Markdown语法。
+                const articles = await loadCivilCodeArticles();
+                const civilCodeMatches = window.CivilCodeEvidence
+                    ? window.CivilCodeEvidence.matchCivilCodeArticles(articles, {
+                        sourceText: `${question}\n${originalPlainText.substring(0, 1200)}`,
+                        problem: currentIssues.map(issue => issue.problem || '').join('\n'),
+                        suggestion: currentIssues.map(issue => issue.suggestion || '').join('\n')
+                    }, 5)
+                    : [];
+                const civilCodePrompt = window.CivilCodeEvidence ? window.CivilCodeEvidence.formatCivilCodeEvidenceForPrompt(civilCodeMatches) : '';
+                const lawInstruction = civilCodePrompt
+                    ? `\n\n可参考的民法典条文：\n${civilCodePrompt}\n\n如果这些条文与问题相关，请在回答末尾加入“参考依据：”并列出相关条号；不得编造未提供的法条。`
+                    : '';
+                const systemPrompt = `你是一个专业的合同审核专家。请根据以下合同内容回答用户的问题，使用纯文本格式，不要使用任何Markdown语法。${lawInstruction}
 
 合同内容：${originalPlainText.substring(0, 6000)}`;
                 
@@ -1170,7 +1312,7 @@
                 let answer = data.choices[0].message.content;
                 answer = answer.replace(/\*\*/g, '').replace(/`/g, '').replace(/^#+\s*/gm, '').replace(/^-\s*/gm, '• ');
                 
-                qaHistory.push({ question, answer });
+                qaHistory.push({ question, answer, civilCodeMatches });
                 updateQaHistory();
                 document.getElementById('userQuestion').value = '';
                 updateStatus("✅ 问题已解答", 'success');
@@ -1311,6 +1453,18 @@
             updateStatus("⏳ 正在优化当前段落...", 'info');
 
             try {
+                const articles = await loadCivilCodeArticles();
+                const civilCodeMatches = window.CivilCodeEvidence
+                    ? window.CivilCodeEvidence.matchCivilCodeArticles(articles, {
+                        sourceText: originalText,
+                        problem: matchedIssue ? matchedIssue.problem || '' : '',
+                        suggestion: matchedIssue ? matchedIssue.suggestion || '' : issueText
+                    }, 3)
+                    : [];
+                const civilCodePrompt = window.CivilCodeEvidence ? window.CivilCodeEvidence.formatCivilCodeEvidenceForPrompt(civilCodeMatches) : '';
+                const lawReferenceText = civilCodePrompt
+                    ? `\n\n参考民法典条文：\n${civilCodePrompt}\n\n请在不改变交易目的的前提下，参考上述条文优化该段落；不得编造未提供的法条。`
+                    : '';
                 const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
@@ -1318,7 +1472,7 @@
                         model,
                         messages: [
                             { role: 'system', content: '你是专业的合同文本优化助手。只输出优化后的单个段落纯文本，不要解释，不要使用Markdown，不要添加标题，不要输出代码块。' },
-                            { role: 'user', content: `合同上下文：\n${originalPlainText.substring(0, 6000)}\n\n审核意见：\n${issueText}\n\n请优化以下原段落：\n${originalText}` }
+                            { role: 'user', content: `合同上下文：\n${originalPlainText.substring(0, 6000)}\n\n审核意见：\n${issueText}${lawReferenceText}\n\n请优化以下原段落：\n${originalText}` }
                         ],
                         temperature: 0.3,
                         max_tokens: 1200
@@ -1340,7 +1494,7 @@
                 if (typeof showOptimizationPreview !== 'function') throw new Error('优化预览组件未初始化');
 
                 pendingOptimizedText = optimizedText;
-                showOptimizationPreview(originalText, optimizedText, paragraph, matchedIssue);
+                showOptimizationPreview(originalText, optimizedText, paragraph, matchedIssue, civilCodeMatches);
                 updateStatus("✅ 段落优化完成，请确认是否应用", 'success');
             } catch (error) {
                 updateStatus(`❌ 段落优化失败: ${error.message}`, 'error');
@@ -1366,6 +1520,7 @@
                         <h4>左侧审核建议</h4>
                         <div id="optimizationSuggestionText" class="optimization-text"></div>
                     </div>
+                    <div id="optimizationCivilCodeEvidence"></div>
                     <div class="optimization-compare">
                         <div class="optimization-block">
                             <h4>原文</h4>
@@ -1395,13 +1550,17 @@
             return `问题：${issue.problem || '无'}\n建议：${issue.suggestion || '无'}`;
         }
 
-        function showOptimizationPreview(originalText, optimizedText, paragraph = hoveredOptimizeParagraph, matchedIssue = null) {
+        function showOptimizationPreview(originalText, optimizedText, paragraph = hoveredOptimizeParagraph, matchedIssue = null, civilCodeMatches = []) {
             const mask = ensureOptimizationModal();
             const normalizedText = normalizeOptimizedParagraphText(optimizedText);
             pendingOptimization = { paragraph, originalText, optimizedText: normalizedText };
             pendingOptimizedText = normalizedText;
             document.getElementById('optimizationOriginalText').textContent = originalText || '';
             document.getElementById('optimizationSuggestionText').textContent = formatOptimizationSuggestion(matchedIssue);
+            const evidenceDiv = document.getElementById('optimizationCivilCodeEvidence');
+            evidenceDiv.innerHTML = window.CivilCodeEvidence && civilCodeMatches.length
+                ? window.CivilCodeEvidence.renderCivilCodeEvidence(civilCodeMatches).replace('相关民法典依据', '参考民法典依据')
+                : '';
             document.getElementById('optimizationNewText').value = normalizedText;
             mask.style.display = 'flex';
         }
@@ -1607,7 +1766,7 @@ ${userInstructions}`;
                 );
                 htmlContent = htmlContent.replace(
                     /<div class="issue-annotation">/g,
-                    '<div style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:8px 12px;margin:8px 0;font-size:12px;color:#856404;border-radius:4px;">'
+                    '<div class="issue-annotation" style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:8px 12px;margin:8px 0;font-size:12px;color:#856404;border-radius:4px;">'
                 );
 
                 updatePreview(htmlContent, issues);

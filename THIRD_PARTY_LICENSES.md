@@ -1,6 +1,6 @@
 # Third-Party Licenses
 
-This project uses the following third-party open-source libraries:
+This project uses the following third-party open-source libraries and public legal text sources:
 
 ---
 
@@ -114,4 +114,12 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+---
+
+## 中华人民共和国民法典
+
+- **Use**: Civil Code browsing, search, AI consultation candidate retrieval, and reference display
+- **Source text**: Public legal text of the People's Republic of China Civil Code
+- **Note**: The included text is provided for reference and convenience only. For authoritative legal text and legal applicability, please verify against official legal publication channels or authoritative professional sources.
 
