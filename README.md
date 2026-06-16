@@ -132,7 +132,6 @@ python -m http.server 8080
 |---|---|---|
 | [Mammoth.js](https://github.com/mwilliamson/mammoth.js) | DOCX 解析 | BSD-2 |
 | [JSZip](https://github.com/Stuk/jszip) | DOCX 格式保留与修改 | MIT |
-| [docx.js](https://github.com/dolanmiu/docx) | DOCX 生成 | MIT |
 | [Quill.js](https://github.com/quilljs/quill) | 富文本编辑器 | BSD-3 |
 | 《中华人民共和国民法典》 | 法条查询与参考依据 | 法律法规文本，请以官方发布为准 |
 

@@ -1,0 +1,40 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #f5f7fb; color: #222; }
+.header { position: sticky; top: 0; z-index: 10; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 18px 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.12); }
+.header-row { display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
+.header h1 { margin: 0; font-size: 22px; }
+.header a { color: white; text-decoration: none; background: rgba(255,255,255,0.18); padding: 8px 12px; border-radius: 8px; }
+.disclaimer { margin-top: 12px; background: rgba(255,247,237,0.96); color: #7c2d12; border-left: 4px solid #f59e0b; padding: 10px 12px; border-radius: 8px; font-size: 13px; line-height: 1.6; }
+.search { margin-top: 14px; display: flex; gap: 10px; }
+.search input { flex: 1; padding: 12px 14px; border: none; border-radius: 8px; font-size: 15px; }
+.search button { border: none; border-radius: 8px; padding: 0 18px; color: white; background: #11998e; font-weight: 700; cursor: pointer; }
+#consultBtn { background: #f59e0b; }
+.layout { display: grid; grid-template-columns: 320px 1fr; gap: 18px; padding: 18px; }
+.sidebar, .content { background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+.sidebar { position: sticky; top: 92px; height: calc(100vh - 112px); overflow: auto; padding: 16px; }
+.content-col { display: flex; flex-direction: column; gap: 16px; min-height: calc(100vh - 112px); }
+.content { padding: 22px; min-height: calc(100vh - 144px); }
+.toc-title { font-weight: 700; margin-bottom: 10px; color: #333; }
+.toc-item { display: block; color: #333; text-decoration: none; padding: 6px 8px; border-radius: 6px; line-height: 1.45; }
+.toc-item:hover { background: #eef2ff; color: #4f46e5; }
+.toc-book { font-weight: 700; margin-top: 8px; }
+.toc-subbook { padding-left: 18px; font-size: 14px; }
+.toc-chapter { padding-left: 32px; font-size: 13px; color: #555; }
+.section-heading { margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb; color: #333; }
+.book-heading { font-size: 24px; color: #4f46e5; }
+.subbook-heading { font-size: 20px; color: #6d28d9; }
+.chapter-heading { font-size: 18px; color: #111827; }
+.article { padding: 14px 0; border-bottom: 1px solid #edf0f5; line-height: 1.8; }
+.article-no { font-weight: 700; color: #c62828; margin-bottom: 4px; }
+.article-path { font-size: 12px; color: #888; margin-bottom: 6px; }
+.article-text { white-space: pre-wrap; }
+.result-summary { padding: 10px 12px; background: #e3f2fd; color: #1565c0; border-radius: 8px; margin-bottom: 12px; }
+.consult-result { background: #fff7ed; color: #333; border: 1px solid #fed7aa; border-radius: 10px; padding: 14px; margin-bottom: 16px; }
+.consult-answer { white-space: pre-wrap; line-height: 1.7; margin-bottom: 12px; }
+.consult-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; margin-top: 8px; }
+.consult-card-title { color: #c62828; font-weight: 700; }
+.consult-card-path { color: #777; font-size: 12px; margin: 4px 0; }
+.jump-btn { margin-top: 6px; border: none; border-radius: 6px; padding: 6px 10px; color: white; background: #667eea; cursor: pointer; }
+.article-active { background: #fff7ed; outline: 2px solid #f97316; border-radius: 8px; padding-left: 10px; padding-right: 10px; }
+.empty { color: #888; text-align: center; padding: 60px 0; }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .sidebar { position: static; height: auto; max-height: 360px; } }

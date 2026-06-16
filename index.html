@@ -700,24 +700,6 @@
                 </div>
                 <div id="fileInfo" class="file-info" style="display: none;"></div>
                 
-                <div class="check-options">
-                    <div class="check-option">
-                        <input type="checkbox" id="checkTerms" checked>
-                        <label>📋 条款合理性</label>
-                    </div>
-                    <div class="check-option">
-                        <input type="checkbox" id="checkRisk" checked>
-                        <label>⚠️ 风险点识别</label>
-                    </div>
-                    <div class="check-option">
-                        <input type="checkbox" id="checkCompliance" checked>
-                        <label>⚖️ 合规性审查</label>
-                    </div>
-                    <div class="check-option">
-                        <input type="checkbox" id="checkMissing" checked>
-                        <label>🔍 缺失条款建议</label>
-                    </div>
-                </div>
             </div>
 
             <div class="button-group">
@@ -772,13 +754,10 @@
         </div>
     </div>
 
-    <script src="js/docx.umd.min.js"></script>
-    <script src="js/word-generator.js"></script>
     <script src="js/mammoth.browser.min.js"></script>
     <script src="js/quill.min.js"></script>
     
     <script>
-        let generator = null;
         let currentDocBlob = null;
         let originalHtmlContent = '';
         let originalPlainText = '';
@@ -796,7 +775,6 @@
         let pendingOptimization = null;
         let pendingOptimizedText = '';
         let civilCodeArticles = null;
-        let civilCodeLoadPromise = null;
         
         const STORAGE_KEY = 'deepseek_api_key';
         const INSTRUCTIONS_STORAGE_KEY = 'review_instructions';
@@ -908,15 +886,7 @@
                 // Capture DOCX paragraph XML at upload time for reliable replacement later
                 const zip = await JSZip.loadAsync(arrayBuffer);
                 let docXmlText = await zip.file('word/document.xml').async('string');
-                const paraRegex = /<w:p[\s>]([\s\S]*?)<\/w:p>/g;
-                docxParagraphs = [];
-                let m;
-                while ((m = paraRegex.exec(docXmlText)) !== null) {
-                    const tr = /<w:t[^>]*>([^<]*)<\/w:t>/g;
-                    let text = '', tm;
-                    while ((tm = tr.exec(m[1])) !== null) text += tm[1];
-                    docxParagraphs.push({ full: m[0], text: text.trim() });
-                }
+                docxParagraphs = getDocxParagraphs(docXmlText);
 
                 const originalDiv = document.getElementById('codeContent');
                 originalDiv.innerHTML = '';
@@ -961,9 +931,7 @@
         
         function cleanupQuillEditor() {
             if (!quillEditor) return;
-            if (typeof quillEditor.destroy === 'function') {
-                quillEditor.destroy();
-            } else if (quillEditor.root) {
+            if (quillEditor.root) {
                 quillEditor.root.removeEventListener('mousemove', handleEditorMouseMove);
                 quillEditor.root.removeEventListener('mouseleave', handleEditorMouseLeave);
             }
@@ -1024,9 +992,7 @@
         }
         
         function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+            return String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
         
         function updateSummaryCard(issues) {
@@ -1052,24 +1018,8 @@
         }
         
         async function loadCivilCodeArticles() {
-            if (civilCodeArticles) return civilCodeArticles;
-            if (Array.isArray(window.CIVIL_CODE_ARTICLES)) {
-                civilCodeArticles = window.CIVIL_CODE_ARTICLES;
-                return civilCodeArticles;
-            }
-            if (!civilCodeLoadPromise) {
-                civilCodeLoadPromise = fetch('data/civil-code.json')
-                    .then(response => response.ok ? response.json() : null)
-                    .then(data => {
-                        civilCodeArticles = data && Array.isArray(data.articlesIndex) ? data.articlesIndex : [];
-                        return civilCodeArticles;
-                    })
-                    .catch(() => {
-                        civilCodeArticles = [];
-                        return civilCodeArticles;
-                    });
-            }
-            return civilCodeLoadPromise;
+            civilCodeArticles = Array.isArray(window.CIVIL_CODE_ARTICLES) ? window.CIVIL_CODE_ARTICLES : [];
+            return civilCodeArticles;
         }
 
         async function verifyCivilCodeEvidenceForIssue(issue, candidates) {
@@ -1122,6 +1072,19 @@
             });
         }
 
+        function getDocxParagraphs(xml) {
+            const paras = [];
+            const paraRegex = /<w:p[\s>]([\s\S]*?)<\/w:p>/g;
+            let m;
+            while ((m = paraRegex.exec(xml)) !== null) {
+                const tr = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+                let text = '', tm;
+                while ((tm = tr.exec(m[1])) !== null) text += tm[1];
+                paras.push({ full: m[0], xml: m[0], text: text.trim() });
+            }
+            return paras;
+        }
+
         function updatePreview(annotatedHtml, issues) {
             const previewDiv = document.getElementById('previewContent');
             const downloadBtn = document.getElementById('downloadBtn');
@@ -1133,7 +1096,6 @@
                 <div style="background: white; padding: 20px; border-radius: 8px;">
                     <div style="border-bottom: 2px solid #c62828; margin-bottom: 20px; padding-bottom: 10px;">
                         <span style="font-size: 12px; color: #c62828;">🔍 AI审核结果</span>
-                        <span style="font-size: 12px; color: #999; margin-left: 10px;">${new Date().toLocaleString()}</span>
                         <span style="font-size: 12px; color: #c62828; margin-left: 10px;">发现问题: ${issues.length}个</span>
                     </div>
                     <div class="contract-preview">
@@ -1185,16 +1147,7 @@
                     return;
                 }
 
-                // 正则提取 DOCX 段落
-                const paraRegex = /<w:p[\s>]([\s\S]*?)<\/w:p>/g;
-                const paras = [];
-                let m;
-                while ((m = paraRegex.exec(docXmlText)) !== null) {
-                    const tr = /<w:t[^>]*>([^<]*)<\/w:t>/g;
-                    let text = '', tm;
-                    while ((tm = tr.exec(m[1])) !== null) text += tm[1];
-                    paras.push({ xml: m[0], text: text.trim() });
-                }
+                const paras = getDocxParagraphs(docXmlText);
 
                 // 匹配
                 const used = new Set();
