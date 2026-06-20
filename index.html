@@ -1544,8 +1544,8 @@
             }
         }
 
-        function addChatMessage(role, text, civilCodeMatches) {
-            chatMessages.push({ role, text, civilCodeMatches, time: new Date().toISOString() });
+        function addChatMessage(role, text) {
+            chatMessages.push({ role, text, time: new Date().toISOString() });
             renderChatMessages();
         }
 
@@ -1556,9 +1556,6 @@
                 const label = msg.role === 'user' ? '👤 你' : '🤖 AI助手';
                 const cls = msg.role === 'user' ? 'user' : 'assistant';
                 html += `<div class="chat-msg ${cls}"><div class="msg-label">${label}</div>${escapeHtml(msg.text).replace(/\n/g, '<br>')}</div>`;
-                if (window.CivilCodeEvidence && msg.civilCodeMatches && msg.civilCodeMatches.length) {
-                    html += `<div class="chat-msg assistant">${window.CivilCodeEvidence.renderCivilCodeEvidence(msg.civilCodeMatches)}</div>`;
-                }
             });
             container.innerHTML = html;
             container.scrollTop = container.scrollHeight;
@@ -1598,27 +1595,15 @@
                 // 如果已上传合同但未审核，自动触发审核
                 if (originalPlainText && (!Array.isArray(currentIssues) || currentIssues.length === 0)) {
                     hideChatTyping();
-                    updateStatus("🔍 检测到合同未审核，正在自动审核...", 'info');
+                    addChatMessage('assistant', '📋 检测到合同尚未审核，我先帮您进行全面的合同审核，审核完成后再回答您的问题...');
+                    showChatTyping();
                     try {
                         await checkContractInternal();
                     } catch (reviewError) {
-                        // 审核失败也继续回答（可能没API key等情况）
+                        // 审核失败也在聊天中提示
                     }
+                    hideChatTyping();
                     showChatTyping();
-                }
-
-                // 民法典依据不放入system prompt，审核结果已通过问题汇总提供
-                let civilCodeMatches = [];
-                if (originalPlainText && window.CivilCodeEvidence) {
-                    civilCodeMatches = window.CivilCodeEvidence.matchCivilCodeArticles(
-                        await loadCivilCodeArticles(),
-                        {
-                            sourceText: `${question}\n${originalPlainText.substring(0, 1200)}`,
-                            problem: Array.isArray(currentIssues) ? currentIssues.map(i => i.problem || '').join('\n') : '',
-                            suggestion: Array.isArray(currentIssues) ? currentIssues.map(i => i.suggestion || '').join('\n') : ''
-                        },
-                        3
-                    );
                 }
 
                 const reviewInstructions = document.getElementById('reviewInstructions').value.trim();
@@ -1666,7 +1651,7 @@
                 answer = answer.replace(/\*\*/g, '').replace(/`/g, '').replace(/^#+\s*/gm, '').replace(/^-\s*/gm, '• ');
 
                 hideChatTyping();
-                addChatMessage('assistant', answer, civilCodeMatches);
+                addChatMessage('assistant', answer);
                 updateStatus("✅ 问题已解答", 'success');
             } catch (error) {
                 hideChatTyping();
