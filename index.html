@@ -2566,10 +2566,7 @@ ${userInstructions}`;
             <button onclick="toggleChatPanel()" style="background:rgba(255,255,255,0.18);border:none;color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;">✕</button>
         </div>
         <div id="chatMessages" class="chat-messages">
-            <div class="chat-msg assistant">
-                <div class="msg-label">🤖 AI助手</div>
-                你好！上传合同后可以针对合同内容向我提问，也可以问任何法律相关问题。
-            </div>
+            <div class="chat-msg assistant"><div class="msg-label">🤖 AI助手</div>你好！上传合同后可以针对合同内容向我提问，也可以问任何法律相关问题。</div>
         </div>
         <div class="chat-input-area">
             <textarea id="chatInput" placeholder="输入问题..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}"></textarea>
