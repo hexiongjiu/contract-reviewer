@@ -1219,6 +1219,24 @@
                     if (action === 'cancel') { updateStatus("📄 已取消上传", 'info'); return; }
                     if (action === 'update') {
                         currentHistoryItem = dupRecord;
+                        // 载入历史审核结果到预览面板
+                        currentIssues = dupRecord.issues || [];
+                        document.getElementById('previewContent').innerHTML = `
+                            <div style="background: white; padding: 20px; border-radius: 8px;">
+                                <div style="border-bottom: 2px solid #c62828; margin-bottom: 20px; padding-bottom: 10px;">
+                                    <span style="font-size: 12px; color: #c62828;">📜 历史审核结果</span>
+                                    <span style="font-size: 12px; color: #c62828; margin-left: 10px;">发现问题：${(dupRecord.issues || []).length}个</span>
+                                </div>
+                                <div class="contract-preview">${dupRecord.annotatedHtml || ''}</div>
+                            </div>`;
+                        updateSummaryCard(dupRecord.issues || []);
+                        document.getElementById('downloadBtn').disabled = false;
+                        if (Array.isArray(dupRecord.chatMessages)) {
+                            chatMessages = dupRecord.chatMessages;
+                            renderChatMessages();
+                        }
+                        updateChatContractBadge();
+                        updateStatus(`✅ 已载入历史审核结果：${dupRecord.filename}`, 'success');
                     }
                 }
 
