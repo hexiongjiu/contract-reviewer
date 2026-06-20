@@ -1607,9 +1607,8 @@
                     showChatTyping();
                 }
 
-                // 民法典依据：仅合同已加载且有审核结果时才匹配
+                // 民法典依据不放入system prompt，审核结果已通过问题汇总提供
                 let civilCodeMatches = [];
-                let civilCodePrompt = '';
                 if (originalPlainText && window.CivilCodeEvidence) {
                     civilCodeMatches = window.CivilCodeEvidence.matchCivilCodeArticles(
                         await loadCivilCodeArticles(),
@@ -1620,15 +1619,10 @@
                         },
                         3
                     );
-                    if (civilCodeMatches.length) {
-                        civilCodePrompt = `\n\n可参考的民法典条文：\n${window.CivilCodeEvidence.formatCivilCodeEvidenceForPrompt(civilCodeMatches)}\n\n如果相关，在回答末尾加入"参考依据："并列出相关条号；不得编造未提供的法条。`;
-                    }
                 }
 
-                const reviewInstructions = document.getElementById('reviewInstructions').value.trim();
                 const systemPrompt = '你是专业的合同审核和法律咨询助手。使用纯文本，不要Markdown。合同内容和审核问题在后续消息中提供。'
-                    + (reviewInstructions ? `\n\n用户设定的审核重点和要求：\n${reviewInstructions}` : '')
-                    + civilCodePrompt;
+                    + (reviewInstructions ? `\n\n用户设定的审核重点和要求：\n${reviewInstructions}` : '');
                 const messages = [{ role: 'system', content: systemPrompt }];
 
                 if (originalPlainText) {
