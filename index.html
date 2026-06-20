@@ -1621,18 +1621,23 @@
                     );
                 }
 
+                const reviewInstructions = document.getElementById('reviewInstructions').value.trim();
+
+                // 问题汇总文本
+                let issueSummaryText = '';
+                if (Array.isArray(currentIssues) && currentIssues.length > 0) {
+                    issueSummaryText = '\n\n=== 审核发现的问题汇总 ===\n'
+                        + currentIssues.map((i, idx) => `${idx + 1}. 问题：${i.problem}\n   建议：${i.suggestion}`).join('\n')
+                        + '\n=== 问题汇总结束 ===';
+                }
+
                 const systemPrompt = '你是专业的合同审核和法律咨询助手。使用纯文本，不要Markdown。合同内容和审核问题在后续消息中提供。'
-                    + (reviewInstructions ? `\n\n用户设定的审核重点和要求：\n${reviewInstructions}` : '');
+                    + (reviewInstructions ? `\n\n用户设定的审核重点和要求：\n${reviewInstructions}` : '')
+                    + issueSummaryText;
                 const messages = [{ role: 'system', content: systemPrompt }];
 
                 if (originalPlainText) {
-                    const contextParts = [];
-                    contextParts.push(`=== 正在审核的合同完整文本 ===\n${originalPlainText}\n=== 合同文本结束 ===`);
-                    if (Array.isArray(currentIssues) && currentIssues.length > 0) {
-                        const issueCtx = currentIssues.map((i, idx) => `${idx + 1}. 问题：${i.problem}\n   建议：${i.suggestion}`).join('\n');
-                        contextParts.push(`=== 审核发现的问题 ===\n${issueCtx}`);
-                    }
-                    messages.push({ role: 'user', content: contextParts.join('\n\n') });
+                    messages.push({ role: 'user', content: `=== 正在审核的合同完整文本 ===\n${originalPlainText}\n=== 合同文本结束 ===` });
                     messages.push({ role: 'assistant', content: '已读取合同内容和审核结果，请随时提问。' });
                 }
 
