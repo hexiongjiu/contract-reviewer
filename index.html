@@ -1592,25 +1592,40 @@
 
             try {
                 showChatTyping();
-                const articles = await loadCivilCodeArticles();
-                const civilCodeMatches = window.CivilCodeEvidence
-                    ? window.CivilCodeEvidence.matchCivilCodeArticles(articles, {
-                        sourceText: originalPlainText ? `${question}\n${originalPlainText.substring(0, 1200)}` : question,
-                        problem: Array.isArray(currentIssues) ? currentIssues.map(i => i.problem || '').join('\n') : '',
-                        suggestion: Array.isArray(currentIssues) ? currentIssues.map(i => i.suggestion || '').join('\n') : ''
-                    }, 3)
-                    : [];
-                const civilCodePrompt = window.CivilCodeEvidence && civilCodeMatches.length
-                    ? `\n\n可参考的民法典条文：\n${window.CivilCodeEvidence.formatCivilCodeEvidenceForPrompt(civilCodeMatches)}\n\n如果相关，在回答末尾加入"参考依据："并列出相关条号；不得编造未提供的法条。`
-                    : '';
 
-                // 轻量级系统提示词（不包含合同文本，避免每轮重复发送）
+                // 如果已上传合同但未审核，自动触发审核
+                if (originalPlainText && (!Array.isArray(currentIssues) || currentIssues.length === 0)) {
+                    hideChatTyping();
+                    updateStatus("🔍 检测到合同未审核，正在自动审核...", 'info');
+                    try {
+                        await checkContractInternal();
+                    } catch (reviewError) {
+                        // 审核失败也继续回答（可能没API key等情况）
+                    }
+                    showChatTyping();
+                }
+
+                // 民法典依据：仅合同已加载且有审核结果时才匹配
+                let civilCodeMatches = [];
+                let civilCodePrompt = '';
+                if (originalPlainText && window.CivilCodeEvidence) {
+                    civilCodeMatches = window.CivilCodeEvidence.matchCivilCodeArticles(
+                        await loadCivilCodeArticles(),
+                        {
+                            sourceText: `${question}\n${originalPlainText.substring(0, 1200)}`,
+                            problem: Array.isArray(currentIssues) ? currentIssues.map(i => i.problem || '').join('\n') : '',
+                            suggestion: Array.isArray(currentIssues) ? currentIssues.map(i => i.suggestion || '').join('\n') : ''
+                        },
+                        3
+                    );
+                    if (civilCodeMatches.length) {
+                        civilCodePrompt = `\n\n可参考的民法典条文：\n${window.CivilCodeEvidence.formatCivilCodeEvidenceForPrompt(civilCodeMatches)}\n\n如果相关，在回答末尾加入"参考依据："并列出相关条号；不得编造未提供的法条。`;
+                    }
+                }
+
                 const systemPrompt = '你是专业的合同审核和法律咨询助手。使用纯文本，不要Markdown。合同内容和审核问题在后续消息中提供。' + civilCodePrompt;
-
-                // 构建消息：系统提示 + 合同上下文(仅首条) + 历史记录 + 当前问题
                 const messages = [{ role: 'system', content: systemPrompt }];
 
-                // 合同文本和审核问题作为上下文，放在历史记录之前
                 if (originalPlainText) {
                     const contextParts = [];
                     contextParts.push(`=== 正在审核的合同完整文本 ===\n${originalPlainText}\n=== 合同文本结束 ===`);
@@ -1622,7 +1637,6 @@
                     messages.push({ role: 'assistant', content: '已读取合同内容和审核结果，请随时提问。' });
                 }
 
-                // 最近对话历史（不含当前问题）
                 const recentHistory = chatMessages.slice(-16);
                 for (let i = 0; i < recentHistory.length - 1; i++) {
                     const msg = recentHistory[i];
@@ -1630,10 +1644,8 @@
                         messages.push({ role: msg.role, content: msg.text });
                     }
                 }
-                // 用户当前问题
                 messages.push({ role: 'user', content: question });
 
-                // DEBUG: 显示发送给API的完整提示词结构（无论有无key都显示）
                 showPromptDebug(messages);
 
                 if (!apiKey) { hideChatTyping(); sendBtn.disabled = false; throw new Error('请输入DeepSeek API Key'); }
@@ -1641,12 +1653,7 @@
                 const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({
-                        model,
-                        messages: messages,
-                        temperature: 0.5,
-                        max_tokens: 2048
-                    })
+                    body: JSON.stringify({ model, messages, temperature: 0.5, max_tokens: 2048 })
                 });
 
                 if (!response.ok) throw new Error('API请求失败');
@@ -1664,6 +1671,53 @@
                 sendBtn.disabled = false;
                 document.getElementById('chatInput').focus();
             }
+        }
+
+        // 内部审核函数：不更新UI状态，返回审核结果
+        async function checkContractInternal() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const model = document.getElementById('model').value;
+            const userInstructions = document.getElementById('reviewInstructions').value;
+            const combinedPrompt = `${SYSTEM_PROMPT}\n\n====================\n\n审核重点和要求：\n${userInstructions}`;
+
+            if (!apiKey) throw new Error('未配置API Key');
+            if (!originalHtmlContent) throw new Error('无合同内容');
+
+            const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({ model, messages: [{ role: 'system', content: combinedPrompt }, { role: 'user', content: `请审核以下合同：\n\n${originalHtmlContent}` }], temperature: 0.5, max_tokens: 8192 })
+            });
+
+            if (!response.ok) throw new Error('API请求失败');
+            const data = await response.json();
+            let htmlContent = data.choices[0].message.content.replace(/```html\n?/g, '').replace(/```\n?/g, '').trim();
+
+            const issues = [];
+            const issueTempDiv = document.createElement('div');
+            issueTempDiv.innerHTML = htmlContent;
+            issueTempDiv.querySelectorAll('.issue-annotation').forEach(annotation => {
+                const text = annotation.innerHTML;
+                const match = text.match(/<strong>⚠️ 问题：<\/strong>([\s\S]*?)<br>\s*<strong>💡 建议：<\/strong>([\s\S]*)/);
+                if (!match) return;
+                let sourceEl = annotation.previousElementSibling;
+                while (sourceEl && !['P', 'LI', 'H1', 'H2', 'H3'].includes(sourceEl.tagName)) {
+                    sourceEl = sourceEl.previousElementSibling;
+                }
+                issues.push({
+                    problem: match[1].replace(/<[^>]+>/g, '').trim(),
+                    suggestion: match[2].replace(/<[^>]+>/g, '').trim(),
+                    sourceText: sourceEl ? sourceEl.textContent.trim() : ''
+                });
+            });
+
+            currentIssues = issues;
+            const classBasedHtml = htmlContent;
+            htmlContent = htmlContent.replace(/<span class="problem-highlight">/g, '<span style="background-color:#ffebee;color:#c62828;font-weight:bold;padding:0 2px;border-radius:3px;">');
+            htmlContent = htmlContent.replace(/<div class="issue-annotation">/g, '<div class="issue-annotation" style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:8px 12px;margin:8px 0;font-size:12px;color:#856404;border-radius:4px;">');
+            updatePreview(htmlContent, issues);
+            generateAnnotatedDocx(classBasedHtml, issues);
+            return { issues, htmlContent };
         }
 
         // 旧的askQuestion现在由sendChatMessage处理
@@ -2283,6 +2337,11 @@ ${userInstructions}`;
             currentHistoryItem = item;
             originalPlainText = item.contractText || '';
             originalHtmlContent = item.originalHtml || '';
+            currentIssues = item.issues || [];
+
+            // 重置聊天记录
+            chatMessages = [];
+            renderChatMessages();
             
             if (item.docxFileBuffer) {
                 // 恢复原始文件
