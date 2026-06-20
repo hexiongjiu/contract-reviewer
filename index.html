@@ -1194,6 +1194,9 @@
                 return;
             }
             
+            // 清空旧预览和聊天记录
+            clearPreviewLight();
+
             const fileInfo = document.getElementById('fileInfo');
             fileInfo.style.display = 'block';
             fileInfo.innerHTML = `📄 已上传：${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
@@ -2456,14 +2459,7 @@ ${userInstructions}`;
         }
         
         function clearPreview() {
-            document.getElementById('previewContent').innerHTML = `<div style="text-align: center; color: #999; padding: 40px;">📄 上传合同文件后点击"开始审核"<br>AI将自动识别问题并用红色加粗标记</div>`;
-            document.getElementById('summaryCard').style.display = 'none';
-            document.getElementById('downloadBtn').disabled = true;
-            document.getElementById('downloadEditedBtn').disabled = true;
-            chatMessages = [];
-            renderChatMessages();
-            updateChatContractBadge();
-            currentDocBlob = null;
+            clearPreviewLight();
             originalHtmlContent = '';
             originalPlainText = '';
             originalFileBuffer = null;
@@ -2471,15 +2467,28 @@ ${userInstructions}`;
             quillOriginalParagraphs = [];
             htmlToDocxMap = [];
             docxParagraphs = [];
+            cleanupQuillEditor();
+            document.getElementById('codeContent').innerHTML = `<div style="color: #888; text-align: center; padding: 40px;">等待合同上传...</div>`;
+            updateStatus("✅ 已清空预览", 'success');
+        }
+
+        function clearPreviewLight() {
+            document.getElementById('previewContent').innerHTML = `<div style="text-align: center; color: #999; padding: 40px;">📄 上传合同文件后点击"开始审核"<br>AI将自动识别问题并用红色加粗标记</div>`;
+            document.getElementById('summaryCard').style.display = 'none';
+            document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('downloadEditedBtn').disabled = true;
+            document.getElementById('checkBtn').disabled = true;
+            chatMessages = [];
+            renderChatMessages();
+            updateChatContractBadge();
+            currentDocBlob = null;
+            currentIssues = [];
             qaHistory = [];
             updateQaHistory();
             hoveredOptimizeParagraph = null;
             pendingOptimizedText = '';
             hideHoverOptimizeButton();
             closeOptimizationPreview();
-            cleanupQuillEditor();
-            document.getElementById('codeContent').innerHTML = `<div style="color: #888; text-align: center; padding: 40px;">等待合同上传...</div>`;
-            updateStatus("✅ 已清空预览", 'success');
         }
 
         // 历史记录相关功能
