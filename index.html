@@ -1775,6 +1775,7 @@
                 if (originalPlainText && (!Array.isArray(currentIssues) || currentIssues.length === 0)) {
                     hideChatTyping();
                     addChatMessage('assistant', '📋 检测到合同尚未审核，我先帮您进行全面的合同审核，审核完成后再回答您的问题...');
+                    updateLatestHistoryChat();
                     showChatTyping();
                     try {
                         await checkContractInternal();
@@ -1903,6 +1904,7 @@
 
                 hideChatTyping();
                 addChatMessage('assistant', answer);
+                updateLatestHistoryChat();
                 updateStatus("✅ 问题已解答", 'success');
             } catch (error) {
                 hideChatTyping();
@@ -2507,6 +2509,14 @@ ${userInstructions}`;
             const filteredHistory = history.filter(item => item.id !== id);
             localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(filteredHistory));
             renderHistory();
+        }
+
+        // 更新最新一条历史记录的聊天消息
+        function updateLatestHistoryChat() {
+            const history = getHistory();
+            if (!history.length) return;
+            history[0].chatMessages = chatMessages.map(m => ({ role: m.role, text: m.text, time: m.time }));
+            localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
         }
 
         function clearAllHistory() {
