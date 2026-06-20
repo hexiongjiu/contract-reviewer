@@ -2,7 +2,7 @@
 
 # 📜 AI合同审核工具 | Contract Review Assistant
 
-**上传 DOCX · AI智能审核 · 民法典依据 · 民法典查询 · 保留格式导出 · 自由问答 · 原文在线编辑 · 历史记录 · vanilla-agent插件**
+**上传 DOCX · AI智能审核 · 民法典依据 · 民法典查询 · 保留格式导出 · 浮动聊天助手 · 原文在线编辑 · 历史记录**
 
 [![Deploy to GitHub Pages](https://github.com/hexiongjiu/contract-reviewer/actions/workflows/pages.yml/badge.svg)](https://github.com/hexiongjiu/contract-reviewer/actions/workflows/pages.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -42,16 +42,17 @@
 
 纯前端 AI 合同审核工具。上传 DOCX 合同 → DeepSeek AI 自动审核 → 红色加粗标注问题条款 → 黄色高亮显示问题建议 → 自动核对并展示相关民法典依据 → 下载保留原始格式的标注合同。
 
-右侧原文面板支持**富文本在线编辑**和**AI 段落优化**，可结合审核建议和本地民法典候选条文生成优化版本，修改后可下载保留原始格式的修改版 DOCX。
+右下角内置**浮动聊天助手**，支持合同问答、未审核自动触发审核、民法典条文工具调用查询。右侧原文面板支持**富文本在线编辑**和**AI 段落优化**。
 
 项目内置《中华人民共和国民法典》查询页面，支持全文浏览、关键词/条号搜索、AI 咨询并快速定位相关条文。API Key 仅存储在浏览器 `localStorage`，直连 DeepSeek。
 
 ### ✨ 核心功能
 
-- 🤖 **vanilla-agent 插件** — 可选集成 AI 聊天助手，部署代理后可启用页面智能问答
-- 📜 **历史记录管理** — 审核结果自动保存到本地，支持加载、查看和删除历史记录
+- 💬 **浮动聊天助手** — 右下角内置 AI 助手，支持合同问答、自动审核、民法典条文工具调用查询
+- 📜 **历史记录管理** — 审核结果和聊天记录自动保存，支持加载、查看和删除
 - 📄 **DOCX 上传与解析** — 基于 Mammoth.js，支持表格、列表、加粗等格式
 - 🤖 **DeepSeek AI 智能审核** — 条款合理性 / 风险识别 / 合规审查 / 缺失条款
+- 🔍 **未审核自动触发** — 上传合同后直接提问，助手自动先完成审核再回答
 - 🔴 **问题条款红色加粗** — AI 自动标注问题原文，一目了然
 - 🟡 **黄色标注建议** — 每个问题附带详细的修改建议
 - ⚖️ **民法典依据核对** — 本地召回候选条文，再由 AI 逐条核对相关性并展示依据
@@ -60,14 +61,13 @@
 - ✨ **AI 优化原文** — 悬停原文段落即可结合审核建议和参考法条生成优化版本
 - 💾 **下载标注合同** — **100% 保留原始格式**，标注插入到对应条款后
 - 💾 **下载修改后合同** — 编辑后的内容写入原 DOCX，保留字体、大小、加粗等格式
-- 💬 **合同自由问答** — 针对当前合同内容向 AI 提问，并可附带相关民法典依据
 - 🔑 **隐私优先** — API Key 仅存储在浏览器 `localStorage`，直连 DeepSeek
 
 ---
 
 ## 🇺🇸 English
 
-A 100% front-end AI contract review tool. Upload DOCX → DeepSeek review → red bold problem highlights → yellow annotation suggestions → Civil Code references → download annotated DOCX with original formatting preserved. It also includes a Civil Code browser/search page with AI consultation and article jump links.
+A 100% front-end AI contract review tool. Upload DOCX → DeepSeek review → red bold problem highlights → yellow annotation suggestions → Civil Code references → download annotated DOCX with original formatting preserved. Features a built-in floating chat assistant with tool calling for civil code lookups, auto-review on first question, and conversation history management.
 
 ---
 
@@ -75,8 +75,12 @@ A 100% front-end AI contract review tool. Upload DOCX → DeepSeek review → re
 
 ### 2026-06-20
 
-- **历史记录管理** — 每次审核自动保存到浏览器本地存储，支持加载、查看和删除历史审核记录
-- **vanilla-agent 插件** — 可选集成 [vanilla-agent](https://github.com/becomevocal/vanilla-agent) AI 聊天助手，部署代理服务后可启用页面智能问答
+- **浮动聊天助手** — 右下角内置 AI 聊天面板，支持合同问答、自动审核、民法典工具调用
+- **历史记录管理** — 审核结果和聊天记录自动保存，支持加载、查看和删除
+- **审核重点自定义** — 可自定义审核标准，实时生效到系统提示词
+- **未审核自动触发** — 上传合同后直接提问，助手自动先完成审核再回答
+- **民法典工具调用** — AI 自动检测民法典查询意图，调用本地条文搜索并返回准确结果
+- **提示词调试面板** — 左下角 🐛 按钮可查看实际发送给 API 的完整消息
 
 ### 2026-06-15
 
