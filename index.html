@@ -1364,7 +1364,10 @@
             html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
             // 斜体 *text*
             html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-            // ### 标题
+            // 标题（多级）
+            html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
+            html = html.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
+            html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
             html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
             html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
             html = html.replace(/^# (.+)$/gm, '<h3>$1</h3>');
