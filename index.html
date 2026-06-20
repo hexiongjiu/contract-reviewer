@@ -1513,6 +1513,17 @@
         let chatPanelOpen = true;
         let isSending = false;
 
+        // 阿拉伯数字转中文（用于民法典条号匹配，如 666 → 六百六十六）
+        function arabicToChineseNum(n) {
+            if (n <= 0) return String(n);
+            if (n <= 10) return ['零','一','二','三','四','五','六','七','八','九','十'][n];
+            if (n < 20) return '十' + (n % 10 === 0 ? '' : arabicToChineseNum(n % 10));
+            if (n < 100) return arabicToChineseNum(Math.floor(n / 10)) + '十' + (n % 10 === 0 ? '' : arabicToChineseNum(n % 10));
+            if (n < 1000) return arabicToChineseNum(Math.floor(n / 100)) + '百' + (n % 100 === 0 ? '' : (n % 100 < 10 ? '零' : '') + arabicToChineseNum(n % 100));
+            if (n < 10000) return arabicToChineseNum(Math.floor(n / 1000)) + '千' + (n % 1000 === 0 ? '' : (n % 1000 < 100 ? '零' : '') + arabicToChineseNum(n % 1000));
+            return String(n);
+        }
+
         function openChatPanel() {
             chatPanelOpen = true;
             const panel = document.getElementById('chatPanel');
@@ -1670,20 +1681,49 @@
                         // 搜索民法典
                         const articles = await loadCivilCodeArticles();
                         let searchResults = [];
-                        if (window.CivilCodeEvidence && keywords && articles.length) {
+
+                        // 先尝试精确条号匹配（如 "666条" → "第六百六十六条"）
+                        const articleNumMatch = keywords.match(/(\d+)\s*条/);
+                        if (articleNumMatch && articles.length) {
+                            const targetNum = parseInt(articleNumMatch[1]);
+                            const cnNum = arabicToChineseNum(targetNum);
+                            const exactMatch = articles.find(a => a.articleNo === `第${cnNum}条`);
+                            if (exactMatch) {
+                                searchResults = [{
+                                    articleNo: exactMatch.articleNo,
+                                    path: exactMatch.book + ' / ' + (exactMatch.chapter || ''),
+                                    text: exactMatch.text,
+                                    reason: '精确条号匹配'
+                                }];
+                            }
+                        }
+
+                        // 没精确命中，用概念匹配
+                        if (!searchResults.length && window.CivilCodeEvidence && keywords && articles.length) {
                             searchResults = window.CivilCodeEvidence.matchCivilCodeArticles(articles, {
                                 sourceText: keywords,
                                 problem: keywords,
                                 suggestion: ''
                             }, 5);
                         }
-                        // 关键词直接匹配兜底
+                        // 关键词兜底匹配（含数字转换）
                         if (!searchResults.length && keywords && articles.length) {
                             const kw = keywords.replace(/\s+/g, '');
-                            searchResults = articles
-                                .filter(a => (a.articleNo + a.text).replace(/\s+/g, '').includes(kw))
-                                .slice(0, 5)
-                                .map(a => ({ articleNo: a.articleNo, path: a.book + ' / ' + (a.chapter || ''), text: a.text, reason: '关键词匹配' }));
+                            // 尝试带条号的匹配
+                            const numMatch2 = kw.match(/(\d+)/);
+                            if (numMatch2) {
+                                const cn = arabicToChineseNum(parseInt(numMatch2[1]));
+                                searchResults = articles
+                                    .filter(a => a.articleNo.includes(cn))
+                                    .slice(0, 5)
+                                    .map(a => ({ articleNo: a.articleNo, path: a.book + ' / ' + (a.chapter || ''), text: a.text, reason: '条号匹配' }));
+                            }
+                            if (!searchResults.length) {
+                                searchResults = articles
+                                    .filter(a => (a.articleNo + a.text).replace(/\s+/g, '').includes(kw))
+                                    .slice(0, 5)
+                                    .map(a => ({ articleNo: a.articleNo, path: a.book + ' / ' + (a.chapter || ''), text: a.text, reason: '关键词匹配' }));
+                            }
                         }
 
                         // 将工具调用和结果追加到消息
