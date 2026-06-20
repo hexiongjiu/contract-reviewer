@@ -498,6 +498,65 @@
             cursor: not-allowed;
         }
 
+        /* 调试面板 */
+        .debug-panel {
+            position: fixed;
+            bottom: 100px;
+            left: 28px;
+            z-index: 9997;
+            width: min(520px, 94vw);
+            height: min(580px, 70vh);
+            background: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.3);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .debug-panel.open { display: flex; }
+        .debug-header {
+            background: #333;
+            color: #ffd700;
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .debug-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            color: #d4d4d4;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+        .debug-role-system { color: #f48771; }
+        .debug-role-user { color: #89ddff; }
+        .debug-role-assistant { color: #c3e88d; }
+        .debug-separator {
+            border: none;
+            border-top: 1px dashed #555;
+            margin: 10px 0;
+        }
+        .debug-toggle {
+            position: fixed;
+            bottom: 28px;
+            left: 28px;
+            z-index: 9999;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #333;
+            color: #ffd700;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        }
+
         .summary-card {
             background: white;
             border-radius: 8px;
@@ -1525,7 +1584,6 @@
             const question = input.value.trim();
             const sendBtn = document.getElementById('chatSendBtn');
 
-            if (!apiKey) { updateStatus("❌ 请输入DeepSeek API Key", 'error'); return; }
             if (!question) return;
 
             input.value = '';
@@ -1575,6 +1633,11 @@
                 // 用户当前问题
                 messages.push({ role: 'user', content: question });
 
+                // DEBUG: 显示发送给API的完整提示词结构（无论有无key都显示）
+                showPromptDebug(messages);
+
+                if (!apiKey) { hideChatTyping(); sendBtn.disabled = false; throw new Error('请输入DeepSeek API Key'); }
+
                 const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
@@ -1612,6 +1675,32 @@
                 input.value = oldQ.value;
                 sendChatMessage();
             }
+        }
+
+        // 调试面板
+        function toggleDebugPanel() {
+            const panel = document.getElementById('debugPanel');
+            panel.classList.toggle('open');
+        }
+
+        function showPromptDebug(messages) {
+            const countEl = document.getElementById('debugMsgCount');
+            const bodyEl = document.getElementById('debugBody');
+            countEl.textContent = messages.length;
+
+            let html = '';
+            messages.forEach((msg, idx) => {
+                const roleClass = 'debug-role-' + msg.role;
+                const label = { system: 'SYSTEM', user: 'USER', assistant: 'ASSISTANT' }[msg.role] || msg.role;
+                let content = msg.content;
+                if (content.length > 400) {
+                    content = content.substring(0, 400) + '\n…(截断，完整内容已发送)';
+                }
+                html += `<div class="${roleClass}">[${idx + 1}] ${label}</div>`;
+                html += `<div>${escapeHtml(content)}</div>`;
+                html += '<hr class="debug-separator">';
+            });
+            bodyEl.innerHTML = html || '无消息';
         }
 
         function initHoverOptimization() {
@@ -2250,8 +2339,8 @@ ${userInstructions}`;
     </script>
 
     <!-- 浮动聊天助手 -->
-    <button id="chatFab" class="chat-fab" onclick="toggleChatPanel()" title="AI助手">💬</button>
-    <div id="chatPanel" class="chat-panel">
+    <button id="chatFab" class="chat-fab" onclick="toggleChatPanel()" title="AI助手">✕</button>
+    <div id="chatPanel" class="chat-panel open">
         <div class="chat-panel-header">
             <h3>🤖 AI助手 <span id="chatContractBadge" class="chat-contract-badge" style="display:none">📄 当前合同</span></h3>
             <button onclick="toggleChatPanel()" style="background:rgba(255,255,255,0.18);border:none;color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;">✕</button>
@@ -2266,6 +2355,16 @@ ${userInstructions}`;
             <textarea id="chatInput" placeholder="输入问题..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}"></textarea>
             <button class="chat-send-btn" onclick="sendChatMessage()" id="chatSendBtn">➤</button>
         </div>
+    </div>
+
+    <!-- 调试面板：显示实际发给API的提示词 -->
+    <button class="debug-toggle" onclick="toggleDebugPanel()" title="查看提示词">🐛</button>
+    <div id="debugPanel" class="debug-panel">
+        <div class="debug-header">
+            <span>🐛 API 实际发送的消息 (共 <span id="debugMsgCount">0</span> 条)</span>
+            <button onclick="toggleDebugPanel()" style="background:rgba(255,255,255,0.15);border:none;color:white;padding:4px 10px;border-radius:4px;cursor:pointer;">✕</button>
+        </div>
+        <div id="debugBody" class="debug-body">点击聊天输入框提问后，这里将显示实际发送给 API 的完整消息。</div>
     </div>
 </body>
 </html>
