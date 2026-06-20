@@ -1280,6 +1280,39 @@
         function escapeHtml(text) {
             return String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
+
+        function renderMarkdown(text) {
+            if (!text) return '';
+            let html = escapeHtml(text);
+            // 代码块 ```
+            html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+            // 行内代码 `code`
+            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+            // 粗体 **text**
+            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            // 斜体 *text*
+            html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+            // ### 标题
+            html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+            html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+            html = html.replace(/^# (.+)$/gm, '<h3>$1</h3>');
+            // - 无序列表
+            html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+            html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+            // 1. 有序列表
+            html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+            // 引用 > text
+            html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+            // 双换行 → 段落
+            html = html.replace(/\n\n/g, '</p><p>');
+            html = '<p>' + html + '</p>';
+            // 单换行 → <br>
+            html = html.replace(/\n/g, '<br>');
+            // 清理空标签
+            html = html.replace(/<p><\/p>/g, '');
+            html = html.replace(/<p><br><\/p>/g, '');
+            return html;
+        }
         
         function updateSummaryCard(issues) {
             const summaryCard = document.getElementById('summaryCard');
@@ -1648,7 +1681,8 @@
             chatMessages.forEach(msg => {
                 const label = msg.role === 'user' ? '👤 你' : '🤖 AI助手';
                 const cls = msg.role === 'user' ? 'user' : 'assistant';
-                html += `<div class="chat-msg ${cls}"><div class="msg-label">${label}</div>${escapeHtml(msg.text).replace(/\n/g, '<br>')}</div>`;
+                const body = msg.role === 'user' ? escapeHtml(msg.text) : renderMarkdown(msg.text);
+                html += `<div class="chat-msg ${cls}"><div class="msg-label">${label}</div>${body}</div>`;
             });
             container.innerHTML = html;
             container.scrollTop = container.scrollHeight;
@@ -1711,10 +1745,10 @@
                         + '\n=== 问题汇总结束 ===';
                 }
 
-                const systemPrompt = '你是专业的合同审核和法律咨询助手。使用纯文本，不要Markdown。合同内容和审核问题在后续消息中提供。'
+                const systemPrompt = '你是专业的合同审核和法律咨询助手。可以使用Markdown格式回复（**粗体**、*斜体*、`代码`、-列表、###标题等），我会正确渲染。合同内容和审核问题在后续消息中提供。'
                     + (reviewInstructions ? `\n\n用户设定的审核重点和要求：\n${reviewInstructions}` : '')
                     + issueSummaryText
-                    + '\n\n【可用工具】当用户询问民法典相关问题时，先调用工具查询条文再回答。工具调用格式：\n[TOOL_CALL:search_civil_code]{"keywords":"这里写搜索关键词"}\n调用工具后你会收到查询结果，再基于结果回答用户。';
+                    + '\n\n【可用工具】当用户询问民法典相关问题时，先调用工具查询条文再回答。工具调用格式：\n[TOOL_CALL:search_civil_code]{"keywords":"搜索关键词"}\n调用工具后你会收到查询结果，再用Markdown格式基于结果回答用户。';
                 const messages = [{ role: 'system', content: systemPrompt }];
 
                 if (originalPlainText) {
@@ -1749,7 +1783,6 @@
                     if (!response.ok) throw new Error('API请求失败');
                     const data = await response.json();
                     answer = data.choices[0].message.content;
-                    answer = answer.replace(/\*\*/g, '').replace(/`/g, '').replace(/^#+\s*/gm, '').replace(/^-\s*/gm, '• ');
 
                     // 检测工具调用
                     const toolMatch = answer.match(/\[TOOL_CALL:search_civil_code\](\{[\s\S]*?\})/);
