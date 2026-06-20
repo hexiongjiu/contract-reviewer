@@ -426,6 +426,45 @@
         .chat-msg.assistant .msg-label {
             color: #667eea;
         }
+        .chat-msg table {
+            border-collapse: collapse;
+            margin: 8px 0;
+            font-size: 13px;
+            width: 100%;
+        }
+        .chat-msg th, .chat-msg td {
+            border: 1px solid #ddd;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        .chat-msg th {
+            background: #f0f0f5;
+            font-weight: 600;
+        }
+        .chat-msg pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+        .chat-msg code {
+            background: #f0f0f0;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        .chat-msg pre code {
+            background: none;
+            padding: 0;
+        }
+        .chat-msg blockquote {
+            border-left: 3px solid #667eea;
+            padding: 4px 10px;
+            margin: 6px 0;
+            color: #555;
+            background: #f8f8fc;
+        }
         .chat-typing {
             align-self: flex-start;
             background: white;
@@ -1296,11 +1335,22 @@
             html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
             html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
             html = html.replace(/^# (.+)$/gm, '<h3>$1</h3>');
+            // Markdown 表格
+            html = html.replace(/(\|[^\n]+\|\n\|[-: |]+\|\n(?:\|[^\n]+\|\n?)+)/g, function(match) {
+                const lines = match.trim().split('\n');
+                let table = '<table>';
+                lines.forEach((line, i) => {
+                    if (i === 1) return; // 跳过分隔行
+                    const cells = line.split('|').filter(c => c.trim() !== '');
+                    const tag = i === 0 ? 'th' : 'td';
+                    table += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+                });
+                table += '</table>';
+                return table;
+            });
             // - 无序列表
             html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
             html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-            // 1. 有序列表
-            html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
             // 引用 > text
             html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
             // 双换行 → 段落
@@ -1745,7 +1795,7 @@
                         + '\n=== 问题汇总结束 ===';
                 }
 
-                const systemPrompt = '你是专业的合同审核和法律咨询助手。可以使用Markdown格式回复（**粗体**、*斜体*、`代码`、-列表、###标题等），我会正确渲染。合同内容和审核问题在后续消息中提供。'
+                const systemPrompt = '你是专业的合同审核和法律咨询助手。可以使用Markdown格式回复：**粗体**、*斜体*、`代码`、-列表、###标题、表格等，我会正确渲染。合同内容和审核问题在后续消息中提供。'
                     + (reviewInstructions ? `\n\n用户设定的审核重点和要求：\n${reviewInstructions}` : '')
                     + issueSummaryText
                     + '\n\n【可用工具】当用户询问民法典相关问题时，先调用工具查询条文再回答。工具调用格式：\n[TOOL_CALL:search_civil_code]{"keywords":"搜索关键词"}\n调用工具后你会收到查询结果，再用Markdown格式基于结果回答用户。';
