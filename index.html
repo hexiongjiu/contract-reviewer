@@ -1618,7 +1618,8 @@
 
                 const systemPrompt = '你是专业的合同审核和法律咨询助手。使用纯文本，不要Markdown。合同内容和审核问题在后续消息中提供。'
                     + (reviewInstructions ? `\n\n用户设定的审核重点和要求：\n${reviewInstructions}` : '')
-                    + issueSummaryText;
+                    + issueSummaryText
+                    + '\n\n【可用工具】当用户询问民法典相关问题时，先调用工具查询条文再回答。工具调用格式：\n[TOOL_CALL:search_civil_code]{"keywords":"这里写搜索关键词"}\n调用工具后你会收到查询结果，再基于结果回答用户。';
                 const messages = [{ role: 'system', content: systemPrompt }];
 
                 if (originalPlainText) {
@@ -1639,16 +1640,59 @@
 
                 if (!apiKey) { hideChatTyping(); sendBtn.disabled = false; throw new Error('请输入DeepSeek API Key'); }
 
-                const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({ model, messages, temperature: 0.5, max_tokens: 2048 })
-                });
+                // 工具调用循环：最多2轮（回答 + 可能的工具调用）
+                let answer = '';
+                let toolCallCount = 0;
+                const maxToolCalls = 2;
 
-                if (!response.ok) throw new Error('API请求失败');
-                const data = await response.json();
-                let answer = data.choices[0].message.content;
-                answer = answer.replace(/\*\*/g, '').replace(/`/g, '').replace(/^#+\s*/gm, '').replace(/^-\s*/gm, '• ');
+                while (toolCallCount <= maxToolCalls) {
+                    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                        body: JSON.stringify({ model, messages, temperature: 0.5, max_tokens: 2048 })
+                    });
+                    if (!response.ok) throw new Error('API请求失败');
+                    const data = await response.json();
+                    answer = data.choices[0].message.content;
+                    answer = answer.replace(/\*\*/g, '').replace(/`/g, '').replace(/^#+\s*/gm, '').replace(/^-\s*/gm, '• ');
+
+                    // 检测工具调用
+                    const toolMatch = answer.match(/\[TOOL_CALL:search_civil_code\](\{[\s\S]*?\})/);
+                    if (toolMatch) {
+                        toolCallCount++;
+                        let toolParams;
+                        try { toolParams = JSON.parse(toolMatch[1]); } catch (e) { toolParams = { keywords: '' }; }
+                        const keywords = toolParams.keywords || '';
+
+                        // 搜索民法典
+                        const articles = await loadCivilCodeArticles();
+                        let searchResults = [];
+                        if (window.CivilCodeEvidence && keywords && articles.length) {
+                            searchResults = window.CivilCodeEvidence.matchCivilCodeArticles(articles, {
+                                sourceText: keywords,
+                                problem: keywords,
+                                suggestion: ''
+                            }, 5);
+                        }
+                        // 关键词直接匹配兜底
+                        if (!searchResults.length && keywords && articles.length) {
+                            const kw = keywords.replace(/\s+/g, '');
+                            searchResults = articles
+                                .filter(a => (a.articleNo + a.text).replace(/\s+/g, '').includes(kw))
+                                .slice(0, 5)
+                                .map(a => ({ articleNo: a.articleNo, path: a.book + ' / ' + (a.chapter || ''), text: a.text, reason: '关键词匹配' }));
+                        }
+
+                        // 将工具调用和结果追加到消息
+                        messages.push({ role: 'assistant', content: answer });
+                        const resultText = searchResults.length
+                            ? '民法典查询结果：\n' + searchResults.map((r, i) => `${i + 1}. ${r.articleNo} ${r.path}\n条文：${r.text}`).join('\n\n')
+                            : '未找到相关民法典条文。';
+                        messages.push({ role: 'user', content: `[工具返回] ${resultText}\n\n请基于以上查询结果回答用户问题。` });
+                        continue; // 下一轮，LLM 基于工具结果回答
+                    }
+                    break; // 没有工具调用，结束循环
+                }
 
                 hideChatTyping();
                 addChatMessage('assistant', answer);
