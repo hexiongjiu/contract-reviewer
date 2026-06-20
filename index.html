@@ -1511,6 +1511,7 @@
         // 浮动聊天助手
         let chatMessages = [];
         let chatPanelOpen = true;
+        let isSending = false;
 
         function openChatPanel() {
             chatPanelOpen = true;
@@ -1577,6 +1578,7 @@
         }
 
         async function sendChatMessage() {
+            if (isSending) return;
             const apiKey = document.getElementById('apiKey').value.trim();
             const model = document.getElementById('model').value;
             const input = document.getElementById('chatInput');
@@ -1587,6 +1589,7 @@
 
             input.value = '';
             sendBtn.disabled = true;
+            isSending = true;
             addChatMessage('user', question);
 
             try {
@@ -1702,6 +1705,7 @@
                 updateStatus(`❌ 提问失败: ${error.message}`, 'error');
             } finally {
                 sendBtn.disabled = false;
+                isSending = false;
                 document.getElementById('chatInput').focus();
             }
         }
