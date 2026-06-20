@@ -6,6 +6,7 @@
     <title>AI合同审核工具 - 智能问答版</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/quill.snow.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vanilla-agent@1.37.0/dist/widget.css" data-vanilla-agent>
     <script src="js/jszip.min.js"></script>
     <script src="js/civil-code-data.js"></script>
     <script src="js/civil-code-evidence.js"></script>
@@ -721,6 +722,17 @@
             padding: 40px;
         }
 
+        .agent-config {
+            background: #f0f4ff;
+            border-radius: 8px;
+            padding: 0 12px 12px 12px;
+            margin-top: 8px;
+        }
+
+        .agent-toggle-btn {
+            background: linear-gradient(135deg, #00bcd4 0%, #2196f3 100%);
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -757,6 +769,17 @@
                 </div>
                 <div style="font-size: 12px; color: #999; margin-top: 10px;">
                     💡 没有API Key？访问 <a href="https://platform.deepseek.com/" target="_blank">platform.deepseek.com</a> 注册获取
+                </div>
+                <div id="agentConfigSection" class="agent-config" style="display: none;">
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
+                        <div class="api-input-group">
+                            <label>🤖 AI助手接口地址 (可选)</label>
+                            <input type="text" id="agentApiUrl" placeholder="例如: https://your-proxy.vercel.app/api/chat">
+                        </div>
+                        <div style="font-size: 12px; color: #888; margin-top: 6px;">
+                            💡 部署 <a href="https://github.com/becomevocal/vanilla-agent" target="_blank">vanilla-agent</a> 代理服务后可填入地址，启用页面AI助手
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -797,6 +820,7 @@
                 <button class="download-btn" onclick="downloadEditedDoc()" id="downloadEditedBtn" disabled style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">✏️ 下载修改后合同</button>
                 <button onclick="clearPreview()">🗑️ 清空预览</button>
                 <button onclick="toggleHistoryPanel()" id="historyBtn">📜 历史记录</button>
+                <button onclick="toggleAgentWidget()" id="agentBtn">🤖 AI助手</button>
                 <button onclick="window.open('civil-code.html', '_blank')">📖 民法典查询</button>
             </div>
             <div id="status" class="status info">⏳ 请先上传合同文件，然后点击审核</div>
@@ -860,6 +884,8 @@
 
     <script src="js/mammoth.browser.min.js"></script>
     <script src="js/quill.min.js"></script>
+    <!-- vanilla-agent: lazy-loaded via toggle -->
+    <script id="vanilla-agent-loader" data-api-url="" data-flow-id="default" async></script>
     
     <script>
         let currentDocBlob = null;
@@ -2023,7 +2049,7 @@ ${userInstructions}`;
             updateStatus(`✅ 已加载历史记录：${item.filename}`, 'success');
         }
 
-        async function loadDocxParagraphs(buffer) {
+        async         function loadDocxParagraphs(buffer) {
             try {
                 const zip = await JSZip.loadAsync(buffer);
                 let docXmlText = await zip.file('word/document.xml').async('string');
@@ -2032,6 +2058,104 @@ ${userInstructions}`;
                 console.error('加载文档段落失败:', error);
             }
         }
+
+        // vanilla-agent 插件管理
+        let agentWidgetActive = false;
+        let agentWidgetScriptLoaded = false;
+
+        function toggleAgentWidget() {
+            const configSection = document.getElementById('agentConfigSection');
+            if (agentWidgetActive) {
+                destroyAgentWidget();
+                configSection.style.display = 'none';
+                updateStatus('🤖 AI助手已关闭', 'info');
+                return;
+            }
+            configSection.style.display = 'block';
+            const apiUrl = document.getElementById('agentApiUrl').value.trim();
+            if (apiUrl) {
+                initAgentWidget(apiUrl);
+            } else {
+                document.getElementById('agentApiUrl').focus();
+                updateStatus('🤖 请输入AI助手接口地址后再次点击启动', 'info');
+            }
+        }
+
+        function initAgentWidget(apiUrl) {
+            if (agentWidgetActive) destroyAgentWidget();
+
+            const config = {
+                apiUrl: apiUrl,
+                theme: {
+                    primaryColor: '#667eea',
+                    borderRadius: '12px'
+                },
+                placeholder: '有什么合同相关问题可以问我...',
+                title: '合同审核助手',
+                subtitle: '基于 AI 的智能助手'
+            };
+
+            if (!agentWidgetScriptLoaded) {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/vanilla-agent@1.37.0/dist/index.global.js';
+                script.onload = () => {
+                    agentWidgetScriptLoaded = true;
+                    doInit(config);
+                };
+                script.onerror = () => {
+                    updateStatus('❌ AI助手脚本加载失败', 'error');
+                };
+                document.head.appendChild(script);
+            } else {
+                doInit(config);
+            }
+        }
+
+        function doInit(config) {
+            try {
+                if (window.AgentWidget && window.AgentWidget.initAgentWidget) {
+                    window.AgentWidget.initAgentWidget({
+                        target: 'body',
+                        config: config
+                    });
+                    agentWidgetActive = true;
+                    document.getElementById('agentBtn').style.background = 'linear-gradient(135deg, #dc3545 0%, #f5576c 100%)';
+                    document.getElementById('agentBtn').textContent = '🤖 关闭助手';
+                    updateStatus('✅ AI助手已启动', 'success');
+                } else {
+                    updateStatus('❌ AgentWidget 未正确加载', 'error');
+                }
+            } catch (error) {
+                updateStatus(`❌ AI助手启动失败: ${error.message}`, 'error');
+            }
+        }
+
+        function destroyAgentWidget() {
+            try {
+                const container = document.getElementById('agent-widget-root');
+                if (container) container.remove();
+                const shadowHosts = document.querySelectorAll('agent-widget');
+                shadowHosts.forEach(el => el.remove());
+            } catch (e) { /* cleanup */ }
+            agentWidgetActive = false;
+            document.getElementById('agentBtn').style.background = '';
+            document.getElementById('agentBtn').textContent = '🤖 AI助手';
+        }
+
+        // 监听 agentApiUrl 输入变化，按回车启动
+        document.addEventListener('DOMContentLoaded', () => {
+            const apiUrlInput = document.getElementById('agentApiUrl');
+            if (apiUrlInput) {
+                apiUrlInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const url = apiUrlInput.value.trim();
+                        if (url && !agentWidgetActive) {
+                            initAgentWidget(url);
+                        }
+                    }
+                });
+            }
+        });
         
         document.addEventListener('DOMContentLoaded', () => {
             loadApiKey();
