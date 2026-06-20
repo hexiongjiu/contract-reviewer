@@ -632,6 +632,95 @@
             margin-bottom: 18px;
         }
 
+        /* 历史记录面板样式 */
+        .history-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .history-header h3 {
+            color: #333;
+            margin: 0;
+        }
+
+        .history-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #fafafa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .history-item:hover {
+            background: #f0f0f0;
+            transform: translateX(5px);
+        }
+
+        .history-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .history-item-filename {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .history-item-date {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .history-item-stats {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .history-item-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .history-item-actions button {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .history-footer {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+            text-align: right;
+        }
+
+        .no-history {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -646,9 +735,9 @@
                 🔍 AI合同审核工具
                 <span style="font-size: 14px; background: #f5576c; color: white; padding: 4px 12px; border-radius: 20px;">智能问答版</span>
             </h1>
-            <p class="subtitle">✨ 上传合同 | AI标注问题 | 针对合同提问</p>
+            <p class="subtitle">✨ 上传合同 | AI标注问题 | 历史记录管理</p>
             <div class="disclaimer">
-                免责声明：本工具及民法典相关引用仅供学习、参考和辅助审阅，不构成法律意见或律师服务。AI 生成内容可能存在遗漏或偏差，民法典条款及法律适用请以国家法律法规官方发布渠道、权威专业网站或专业法律人士核查意见为准。
+                免责声明：本工具及民法典相关引用仅供学习、参考和辅助审阅，不构成法律意见或律师服务。AI 生成内容可能存在遗漏或偏差，民法典条款和法律适用请以国家法律法规官方发布渠道、权威专业网站或专业法律人士核查意见为准。
             </div>
             
             <div class="api-config">
@@ -707,9 +796,24 @@
                 <button class="download-btn" onclick="downloadDoc()" id="downloadBtn" disabled>💾 下载标注后合同</button>
                 <button class="download-btn" onclick="downloadEditedDoc()" id="downloadEditedBtn" disabled style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">✏️ 下载修改后合同</button>
                 <button onclick="clearPreview()">🗑️ 清空预览</button>
+                <button onclick="toggleHistoryPanel()" id="historyBtn">📜 历史记录</button>
                 <button onclick="window.open('civil-code.html', '_blank')">📖 民法典查询</button>
             </div>
             <div id="status" class="status info">⏳ 请先上传合同文件，然后点击审核</div>
+        </div>
+
+        <!-- 历史记录面板 -->
+        <div id="historyPanel" class="history-panel" style="display: none;">
+            <div class="history-header">
+                <h3>📜 审核历史记录</h3>
+                <button onclick="toggleHistoryPanel()" style="background: #999; padding: 8px 16px; font-size: 14px;">关闭</button>
+            </div>
+            <div id="historyList" class="history-list">
+                <!-- 历史记录将在这里显示 -->
+            </div>
+            <div class="history-footer">
+                <button onclick="clearAllHistory()" style="background: #dc3545; padding: 8px 16px; font-size: 14px;">清空所有历史</button>
+            </div>
         </div>
 
         <div class="qa-section">
@@ -775,9 +879,11 @@
         let pendingOptimization = null;
         let pendingOptimizedText = '';
         let civilCodeArticles = null;
+        let currentHistoryItem = null; // 当前正在操作的历史记录项
         
         const STORAGE_KEY = 'deepseek_api_key';
         const INSTRUCTIONS_STORAGE_KEY = 'review_instructions';
+        const HISTORY_STORAGE_KEY = 'contract_review_history';
         const DEFAULT_INSTRUCTIONS = `请重点审核以下方面：
 
 1. **条款合理性**：检查合同条款是否公平公正，是否存在明显有利于某一方的霸王条款
@@ -1096,7 +1202,7 @@
                 <div style="background: white; padding: 20px; border-radius: 8px;">
                     <div style="border-bottom: 2px solid #c62828; margin-bottom: 20px; padding-bottom: 10px;">
                         <span style="font-size: 12px; color: #c62828;">🔍 AI审核结果</span>
-                        <span style="font-size: 12px; color: #c62828; margin-left: 10px;">发现问题: ${issues.length}个</span>
+                        <span style="font-size: 12px; color: #c62828; margin-left: 10px;">发现问题：${issues.length}个</span>
                     </div>
                     <div class="contract-preview">
                         ${annotatedHtml}
@@ -1113,6 +1219,32 @@
             qaHistory = [];
             updateQaHistory();
             loadCivilCodeArticles().then(() => appendCivilCodeEvidence(issues));
+
+            // 保存到历史记录
+            const filename = document.getElementById('fileInfo').textContent.replace('📄 已上传：', '').split(' (')[0] || '未命名合同';
+            
+            // 将ArrayBuffer转换为base64以便存储
+            let docxFileBuffer = null;
+            if (originalFileBuffer) {
+                try {
+                    docxFileBuffer = btoa(String.fromCharCode.apply(null, new Uint8Array(originalFileBuffer)));
+                } catch (e) {
+                    console.error('转换文件失败:', e);
+                }
+            }
+
+            saveHistoryItem({
+                filename: filename,
+                contractText: originalPlainText,
+                originalHtml: originalHtmlContent,
+                annotatedHtml: annotatedHtml,
+                issues: issues,
+                issuesCount: issues.length,
+                contractLength: originalPlainText.length,
+                docxFileBuffer: docxFileBuffer
+            });
+            
+            updateStatus(`✅ 审核完成并已保存到历史记录，发现 ${issues.length} 个问题`, 'success');
         }
         
         async function generateAnnotatedDocx(annotatedHtml, issues) {
@@ -1722,9 +1854,8 @@ ${userInstructions}`;
                     '<div class="issue-annotation" style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:8px 12px;margin:8px 0;font-size:12px;color:#856404;border-radius:4px;">'
                 );
 
-                updatePreview(htmlContent, issues);
-                generateAnnotatedDocx(classBasedHtml, issues);
-                updateStatus(`✅ 审核完成！发现 ${issues.length} 个问题`, 'success');
+            updatePreview(htmlContent, issues);
+            generateAnnotatedDocx(classBasedHtml, issues);
             } catch (error) {
                 updateStatus(`❌ 审核失败: ${error.message}`, 'error');
             } finally {
@@ -1739,6 +1870,10 @@ ${userInstructions}`;
             document.getElementById('downloadEditedBtn').disabled = true;
             document.getElementById('askBtn').disabled = true;
             currentDocBlob = null;
+            originalHtmlContent = '';
+            originalPlainText = '';
+            originalFileBuffer = null;
+            currentHistoryItem = null;
             quillOriginalParagraphs = [];
             htmlToDocxMap = [];
             docxParagraphs = [];
@@ -1751,6 +1886,151 @@ ${userInstructions}`;
             cleanupQuillEditor();
             document.getElementById('codeContent').innerHTML = `<div style="color: #888; text-align: center; padding: 40px;">等待合同上传...</div>`;
             updateStatus("✅ 已清空预览", 'success');
+        }
+
+        // 历史记录相关功能
+        function getHistory() {
+            const history = localStorage.getItem(HISTORY_STORAGE_KEY);
+            return history ? JSON.parse(history) : [];
+        }
+
+        function saveHistoryItem(item) {
+            const history = getHistory();
+            // 添加时间戳和ID
+            const historyItem = {
+                id: Date.now().toString(),
+                timestamp: new Date().toISOString(),
+                ...item
+            };
+            // 添加到历史记录开头，保持最新的在最上面
+            history.unshift(historyItem);
+            // 只保留最近50条记录
+            const trimmedHistory = history.slice(0, 50);
+            localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedHistory));
+            return historyItem;
+        }
+
+        function deleteHistoryItem(id) {
+            const history = getHistory();
+            const filteredHistory = history.filter(item => item.id !== id);
+            localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(filteredHistory));
+            renderHistory();
+        }
+
+        function clearAllHistory() {
+            if (confirm('确定要清空所有历史记录吗？此操作不可恢复。')) {
+                localStorage.removeItem(HISTORY_STORAGE_KEY);
+                renderHistory();
+                updateStatus('✅ 已清空所有历史记录', 'success');
+            }
+        }
+
+        function toggleHistoryPanel() {
+            const panel = document.getElementById('historyPanel');
+            if (panel.style.display === 'none' || !panel.style.display) {
+                panel.style.display = 'block';
+                renderHistory();
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function renderHistory() {
+            const history = getHistory();
+            const listEl = document.getElementById('historyList');
+            
+            if (history.length === 0) {
+                listEl.innerHTML = '<div class="no-history">暂无审核历史记录</div>';
+                return;
+            }
+
+            listEl.innerHTML = history.map(item => `
+                <div class="history-item" onclick="loadHistoryItem('${item.id}')">
+                    <div class="history-item-header">
+                        <span class="history-item-filename">${escapeHtml(item.filename || '未命名合同')}</span>
+                        <span class="history-item-date">${formatDate(item.timestamp)}</span>
+                    </div>
+                    <div class="history-item-stats">
+                        发现问题：${item.issuesCount || 0} 个 | 
+                        合同长度：${item.contractLength || 0} 字符
+                    </div>
+                    <div class="history-item-actions" onclick="event.stopPropagation()">
+                        <button onclick="loadHistoryItem('${item.id}')">加载</button>
+                        <button onclick="deleteHistoryItem('${item.id}')" style="background: #dc3545;">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadHistoryItem(id) {
+            const history = getHistory();
+            const item = history.find(h => h.id === id);
+            
+            if (!item) {
+                updateStatus('❌ 未找到该历史记录', 'error');
+                return;
+            }
+
+            // 恢复状态
+            currentHistoryItem = item;
+            originalPlainText = item.contractText || '';
+            originalHtmlContent = item.originalHtml || '';
+            
+            if (item.docxFileBuffer) {
+                // 恢复原始文件
+                originalFileBuffer = Uint8Array.from(atob(item.docxFileBuffer), c => c.charCodeAt(0));
+                // 重新解析docx段落用于下载修改后的文档
+                loadDocxParagraphs(originalFileBuffer);
+            }
+            
+            // 重新初始化Quill编辑器并加载原文
+            if (originalHtmlContent || originalPlainText) {
+                initQuillEditor(originalHtmlContent || originalPlainText);
+            }
+            
+            if (item.annotatedHtml) {
+                // 如果有标注结果，直接显示
+                updatePreview(item.annotatedHtml, item.issues || []);
+            }
+            
+            if (item.editedContent) {
+                // 恢复编辑后的内容（如果有）
+                if (quillEditor) {
+                    quillEditor.clipboard.dangerouslyPasteHtml(item.editedContent);
+                }
+            }
+
+            // 更新文件信息
+            const fileInfo = document.getElementById('fileInfo');
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = `📄 ${item.filename} (已从历史记录加载)`;
+            
+            // 启用相关按钮
+            document.getElementById('checkBtn').disabled = !item.annotatedHtml;
+            document.getElementById('downloadBtn').disabled = !item.annotatedHtml;
+            
+            updateStatus(`✅ 已加载历史记录：${item.filename}`, 'success');
+        }
+
+        async function loadDocxParagraphs(buffer) {
+            try {
+                const zip = await JSZip.loadAsync(buffer);
+                let docXmlText = await zip.file('word/document.xml').async('string');
+                docxParagraphs = getDocxParagraphs(docXmlText);
+            } catch (error) {
+                console.error('加载文档段落失败:', error);
+            }
         }
         
         document.addEventListener('DOMContentLoaded', () => {

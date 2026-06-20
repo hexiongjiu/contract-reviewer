@@ -2,7 +2,7 @@
 
 # 📜 AI合同审核工具 | Contract Review Assistant
 
-**上传 DOCX · AI智能审核 · 民法典依据 · 民法典查询 · 保留格式导出 · 自由问答 · 原文在线编辑**
+**上传 DOCX · AI智能审核 · 民法典依据 · 民法典查询 · 保留格式导出 · 自由问答 · 原文在线编辑 · 历史记录**
 
 [![Deploy to GitHub Pages](https://github.com/hexiongjiu/contract-reviewer/actions/workflows/pages.yml/badge.svg)](https://github.com/hexiongjiu/contract-reviewer/actions/workflows/pages.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -48,6 +48,7 @@
 
 ### ✨ 核心功能
 
+- 📜 **历史记录管理** — 审核结果自动保存到本地，支持加载、查看和删除历史记录
 - 📄 **DOCX 上传与解析** — 基于 Mammoth.js，支持表格、列表、加粗等格式
 - 🤖 **DeepSeek AI 智能审核** — 条款合理性 / 风险识别 / 合规审查 / 缺失条款
 - 🔴 **问题条款红色加粗** — AI 自动标注问题原文，一目了然
@@ -70,6 +71,10 @@ A 100% front-end AI contract review tool. Upload DOCX → DeepSeek review → re
 ---
 
 ## 🆕 新增功能
+
+### 2026-06-20
+
+- **历史记录管理** — 每次审核自动保存到浏览器本地存储，支持加载、查看和删除历史审核记录
 
 ### 2026-06-15
 
