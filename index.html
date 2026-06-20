@@ -1626,7 +1626,6 @@
                 }
 
                 const reviewInstructions = document.getElementById('reviewInstructions').value.trim();
-                console.log('[DEBUG] 审核重点内容:', reviewInstructions.substring(0, 100) + '...');
                 const systemPrompt = '你是专业的合同审核和法律咨询助手。使用纯文本，不要Markdown。合同内容和审核问题在后续消息中提供。'
                     + (reviewInstructions ? `\n\n用户设定的审核重点和要求：\n${reviewInstructions}` : '')
                     + civilCodePrompt;
