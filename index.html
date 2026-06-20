@@ -1211,6 +1211,17 @@
                 const htmlResult = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
                 originalHtmlContent = htmlResult.value;
 
+                // 计算内容哈希，检测重复
+                const contentHash = simpleHash(originalPlainText);
+                const dupRecord = getHistory().find(h => h.contentHash === contentHash);
+                if (dupRecord) {
+                    const action = await showDupModal(dupRecord);
+                    if (action === 'cancel') { updateStatus("📄 已取消上传", 'info'); return; }
+                    if (action === 'update') {
+                        currentHistoryItem = dupRecord;
+                    }
+                }
+
                 // Capture DOCX paragraph XML at upload time for reliable replacement later
                 const zip = await JSZip.loadAsync(arrayBuffer);
                 let docXmlText = await zip.file('word/document.xml').async('string');
@@ -1502,6 +1513,7 @@
                 filename: filename,
                 contractText: originalPlainText,
                 originalHtml: originalHtmlContent,
+                contentHash: simpleHash(originalPlainText),
                 annotatedHtml: annotatedHtml,
                 issues: issues,
                 issuesCount: issues.length,
@@ -2515,15 +2527,17 @@ ${userInstructions}`;
 
         function saveHistoryItem(item) {
             const history = getHistory();
-            // 添加时间戳和ID
             const historyItem = {
-                id: Date.now().toString(),
+                id: currentHistoryItem ? currentHistoryItem.id : Date.now().toString(),
                 timestamp: new Date().toISOString(),
                 ...item
             };
-            // 添加到历史记录开头，保持最新的在最上面
+            if (currentHistoryItem) {
+                // 更新已有记录：移除旧条目再插入
+                const idx = history.findIndex(h => h.id === currentHistoryItem.id);
+                if (idx >= 0) history.splice(idx, 1);
+            }
             history.unshift(historyItem);
-            // 只保留最近50条记录
             const trimmedHistory = history.slice(0, 50);
             localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedHistory));
             return historyItem;
@@ -2534,6 +2548,39 @@ ${userInstructions}`;
             const filteredHistory = history.filter(item => item.id !== id);
             localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(filteredHistory));
             renderHistory();
+        }
+
+        // 简单哈希（用于合同内容去重）
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const c = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + c;
+                hash |= 0;
+            }
+            return 'h' + Math.abs(hash).toString(36);
+        }
+
+        // 重复合同弹窗
+        function showDupModal(record) {
+            return new Promise((resolve) => {
+                const mask = document.createElement('div');
+                mask.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;';
+                mask.innerHTML = `<div style="background:white;border-radius:12px;padding:24px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+                    <h3 style="margin:0 0 8px;color:#333;">检测到重复合同</h3>
+                    <p style="margin:0 0 6px;color:#666;font-size:14px;">已审核过相同内容的合同：<strong>${escapeHtml(record.filename || '未命名')}</strong></p>
+                    <p style="margin:0 0 18px;color:#888;font-size:13px;">${formatDate(record.timestamp)} · ${record.issuesCount || 0}个问题</p>
+                    <div style="display:flex;gap:10px;justify-content:flex-end;">
+                        <button id="dupCancel" style="background:#999;padding:8px 18px;border-radius:6px;font-size:14px;">取消</button>
+                        <button id="dupNew" style="background:#667eea;padding:8px 18px;border-radius:6px;font-size:14px;">新建记录</button>
+                        <button id="dupUpdate" style="background:#11998e;padding:8px 18px;border-radius:6px;font-size:14px;">更新已有</button>
+                    </div>
+                </div>`;
+                document.body.appendChild(mask);
+                mask.querySelector('#dupCancel').onclick = () => { mask.remove(); resolve('cancel'); };
+                mask.querySelector('#dupNew').onclick = () => { mask.remove(); resolve('new'); };
+                mask.querySelector('#dupUpdate').onclick = () => { mask.remove(); resolve('update'); };
+            });
         }
 
         // 更新最新一条历史记录的聊天消息
