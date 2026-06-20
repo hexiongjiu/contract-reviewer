@@ -1231,6 +1231,7 @@
                             </div>`;
                         updateSummaryCard(dupRecord.issues || []);
                         document.getElementById('downloadBtn').disabled = false;
+                        loadCivilCodeArticles().then(() => appendCivilCodeEvidence(dupRecord.issues || []));
                         if (Array.isArray(dupRecord.chatMessages)) {
                             chatMessages = dupRecord.chatMessages;
                             renderChatMessages();
