@@ -1400,7 +1400,8 @@
                 issues: issues,
                 issuesCount: issues.length,
                 contractLength: originalPlainText.length,
-                docxFileBuffer: docxFileBuffer
+                docxFileBuffer: docxFileBuffer,
+                chatMessages: chatMessages.map(m => ({ role: m.role, text: m.text, civilCodeMatches: null, time: m.time }))
             });
             
             updateStatus(`✅ 审核完成并已保存到历史记录，发现 ${issues.length} 个问题`, 'success');
@@ -1623,7 +1624,10 @@
                     }
                 }
 
-                const systemPrompt = '你是专业的合同审核和法律咨询助手。使用纯文本，不要Markdown。合同内容和审核问题在后续消息中提供。' + civilCodePrompt;
+                const reviewInstructions = document.getElementById('reviewInstructions').value.trim();
+                const systemPrompt = '你是专业的合同审核和法律咨询助手。使用纯文本，不要Markdown。合同内容和审核问题在后续消息中提供。'
+                    + (reviewInstructions ? `\n\n用户设定的审核重点和要求：\n${reviewInstructions}` : '')
+                    + civilCodePrompt;
                 const messages = [{ role: 'system', content: systemPrompt }];
 
                 if (originalPlainText) {
@@ -2339,8 +2343,8 @@ ${userInstructions}`;
             originalHtmlContent = item.originalHtml || '';
             currentIssues = item.issues || [];
 
-            // 重置聊天记录
-            chatMessages = [];
+            // 恢复聊天记录
+            chatMessages = Array.isArray(item.chatMessages) ? item.chatMessages : [];
             renderChatMessages();
             
             if (item.docxFileBuffer) {
