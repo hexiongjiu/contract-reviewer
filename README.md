@@ -130,8 +130,7 @@ server/data/contract-reviewer.sqlite
 | 项目 | 本项目中的用途 | 许可证 |
 |---|---|---|
 | [Transformers.js](https://github.com/huggingface/transformers.js) (`@huggingface/transformers` 4.0.1) | 在 Node.js 中运行 ONNX 文本向量模型 | Apache-2.0 |
-| [BAAI/bge-small-zh-v1.5](https://huggingface.co/BAAI/bge-small-zh-v1.5) | 中文法条与风险问题的 512 维语义向量 | MIT |
-| [Xenova/bge-small-zh-v1.5](https://huggingface.co/Xenova/bge-small-zh-v1.5) | 供 Transformers.js 使用的量化 ONNX 转换 | 参照模型仓库说明 |
+| [BAAI/bge-small-zh-v1.5](https://huggingface.co/BAAI/bge-small-zh-v1.5)（运行时加载 [Xenova 的量化 ONNX 转换](https://huggingface.co/Xenova/bge-small-zh-v1.5)） | 中文法条与风险问题的 512 维语义向量；两者是同一模型的原始版本与运行格式，不会加载两套模型 | 原模型 MIT；转换文件见其仓库说明 |
 | [Mammoth.js](https://github.com/mwilliamson/mammoth.js) | 将 DOCX 解析为 HTML 和纯文本 | BSD-2-Clause |
 | [JSZip](https://github.com/Stuk/jszip) 3.10.1 | 读取和修改 DOCX 内部 ZIP/XML | MIT 或 GPL-3.0 |
 | [Quill](https://github.com/slab/quill) 1.3.7 | 合同富文本编辑器 | BSD-3-Clause |
