@@ -159,35 +159,9 @@ contract-reviewer/
 
 主页面的 HTML、CSS 和 JavaScript 已拆分，避免继续把全部逻辑堆在单个 HTML 文件中。
 
-## 测试
-
-```bash
-npm test
-```
-
-当前单元测试覆盖法律数据唯一 ID、一条法条一个向量、主题路由、语义候选约束、AI 复核状态、法条结构清洗、结构化审核解析、段落匹配和脚本语法。
-
-安装 Playwright 并启动本地服务后，还可以运行：
-
-```bash
-npm run test:ui
-```
-
-页面级烟雾测试覆盖审核重试、场景化提示词、风险渲染、台账、双栏联动、历史依据复用和法律依据库基本浏览。
-
-## 安全与使用限制
-
-- 不要在公共设备保存真实合同或 API Key。
-- 不要把 `server/data/`、浏览器存储、调试日志或测试合同提交到仓库。
-- 法律语义相似度只用于候选召回，不能单独证明条文适用。
-- “AI 已复核”表示模型执行过候选筛选，不表示律师确认或司法机关认定。
-- 下载或分享审核结果前，应人工复核合同正文、修改建议和引用法条。
-
-截至 2026-09-07，`npm audit` 会报告 Transformers.js 的传递依赖 `onnxruntime-node/adm-zip` 与 `sharp/libvips` 的高等级公告，上游依赖树暂未提供兼容修复。项目服务仅监听 `127.0.0.1`；在修复发布前，请勿将端口暴露到公网，也不要用不可信的模型压缩包替换模型缓存。
-
 ## 贡献
 
-欢迎提交 Issue 和 Pull Request。修改法律数据时，请同时提供官方来源地址、版本/施行日期，并运行完整测试。更多说明见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+欢迎提交 Issue 和 Pull Request。开发环境、单元测试、Playwright 页面测试及法律数据修改要求见 [`CONTRIBUTING.md`](CONTRIBUTING.md)；漏洞报告和当前依赖安全说明见 [`SECURITY.md`](SECURITY.md)。
 
 ## License
 

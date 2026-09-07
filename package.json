@@ -13,5 +13,8 @@
   },
   "dependencies": {
     "@huggingface/transformers": "4.0.1"
+  },
+  "devDependencies": {
+    "playwright": "1.59.1"
   }
 }
