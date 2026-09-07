@@ -16,6 +16,6 @@ if not exist server\vector-data\legal-vectors.f32 (
     exit /b 1
   )
 )
-echo Open http://127.0.0.1:8765 in your browser.
+echo Starting the local service. Open the Contract Reviewer address shown below.
 call npm start
 pause

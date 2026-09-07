@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build:vectors": "node scripts/build-vector-index.mjs",
-    "start": "node server/vector-server.mjs",
+    "start": "node --disable-warning=ExperimentalWarning server/vector-server.mjs",
     "test": "node --test tests/*.test.js",
     "test:ui": "node tests/ui-smoke.js"
   },

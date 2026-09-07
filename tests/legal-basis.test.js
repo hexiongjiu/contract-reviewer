@@ -37,6 +37,16 @@ test('stores exactly one vector record per legal article', () => {
     assert.equal(vectorBytes, expectedArticleCount * meta.dimensions * 4);
 });
 
+test('keeps vector APIs on the selected local port after automatic port fallback', () => {
+    const serverSource = fs.readFileSync(path.join(projectRoot, 'server', 'vector-server.mjs'), 'utf8');
+    const appSource = fs.readFileSync(path.join(projectRoot, 'js', 'app.js'), 'utf8');
+    assert.match(serverSource, /error\.code === 'EADDRINUSE'/);
+    assert.match(serverSource, /activePort \+= 1/);
+    assert.match(appSource, /fetch\('\/api\/legal-search'/);
+    assert.match(appSource, /fetch\('\/api\/vector-status'/);
+    assert.doesNotMatch(appSource, /127\.0\.0\.1:\d+\/api\/(?:legal-search|vector-status)/);
+});
+
 test('keeps document name with article number to avoid duplicate-number ambiguity', () => {
     const firstArticles = legalData.articles.filter(article => article.articleNo === '第一条');
     assert.ok(firstArticles.length > 15);

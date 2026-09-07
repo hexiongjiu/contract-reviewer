@@ -11,7 +11,9 @@ const meta = JSON.parse(fs.readFileSync(path.join(vectorDir, 'legal-vector-meta.
 const vectorBuffer = fs.readFileSync(path.join(vectorDir, 'legal-vectors.f32'));
 const vectors = new Float32Array(vectorBuffer.buffer, vectorBuffer.byteOffset, vectorBuffer.byteLength / 4);
 const portFlagIndex = process.argv.indexOf('--port');
-const port = Number(portFlagIndex >= 0 ? process.argv[portFlagIndex + 1] : (process.env.PORT || 8765));
+const hasExplicitPort = portFlagIndex >= 0 || Boolean(process.env.PORT);
+const requestedPort = Number(portFlagIndex >= 0 ? process.argv[portFlagIndex + 1] : (process.env.PORT || 8765));
+let activePort = requestedPort;
 const dataDir = path.join(projectRoot, 'server', 'data');
 fs.mkdirSync(dataDir, { recursive: true });
 const database = new DatabaseSync(path.join(dataDir, 'contract-reviewer.sqlite'));
@@ -172,7 +174,21 @@ const server = http.createServer(async (request, response) => {
     }
 });
 
-server.listen(port, '127.0.0.1', () => {
-    console.log(`Contract Reviewer: http://127.0.0.1:${port}`);
+server.on('error', error => {
+    if (error.code === 'EADDRINUSE' && !hasExplicitPort && activePort < requestedPort + 50) {
+        console.warn(`Port ${activePort} is already in use; trying ${activePort + 1}...`);
+        activePort += 1;
+        return server.listen(activePort, '127.0.0.1');
+    }
+    if (error.code === 'EADDRINUSE') {
+        console.error(`Cannot start: port ${activePort} is already in use. Choose another port with --port <number>.`);
+    } else {
+        console.error(`Cannot start local service: ${error.message}`);
+    }
+    process.exitCode = 1;
+});
+
+server.listen(activePort, '127.0.0.1', () => {
+    console.log(`Contract Reviewer: http://127.0.0.1:${activePort}`);
     console.log(`Vector model: ${meta.modelId}; ${meta.count} articles / ${meta.count} stored vectors.`);
 });

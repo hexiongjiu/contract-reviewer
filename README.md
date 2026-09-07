@@ -63,7 +63,7 @@
 2. 将 ZIP 完整解压到一个固定文件夹；不要在压缩包预览窗口中直接运行。
 3. 双击解压目录中的 `start-vector-server.cmd`。
 4. 第一次启动时，脚本会自动执行 `npm install`。看到 `Contract Reviewer` 地址后，不要关闭命令窗口。
-5. 在浏览器打开 `http://127.0.0.1:8765/`。
+5. 在浏览器打开启动窗口中 `Contract Reviewer:` 后显示的地址。默认是 `http://127.0.0.1:8765/`；如端口已被占用，程序会自动顺延并显示实际端口。
 6. 在“API 配置”中填写 DeepSeek API Key，上传 DOCX 合同后即可开始审核。
 
 首次使用语义检索时，程序会下载量化后的 `Xenova/bge-small-zh-v1.5` 模型，约 24 MB。下载完成后模型缓存在 `server/model-cache/`，以后通常无需重新下载。关闭应用时，回到命令窗口按 `Ctrl+C`；下次仍然双击 `start-vector-server.cmd`。
@@ -77,7 +77,7 @@ npm install
 npm start
 ```
 
-然后打开：
+然后打开终端中 `Contract Reviewer:` 后显示的地址。通常为：
 
 - 合同审查工作台：`http://127.0.0.1:8765/`
 - 法律依据库：`http://127.0.0.1:8765/legal-library.html`
@@ -91,7 +91,7 @@ npm run build:vectors
 ### 常见启动问题
 
 - **提示找不到 `node` 或 `npm`**：安装 Node.js 后关闭并重新打开命令窗口，再运行启动脚本。
-- **端口 8765 已占用**：先关闭已经运行的本项目窗口，或执行 `node server/vector-server.mjs --port 8878` 改用其他端口。
+- **端口 8765 已占用**：无需手动处理。默认启动会依次寻找后续空闲端口，请以窗口中最终显示的 `Contract Reviewer:` 地址为准。
 - **首次法律检索较慢**：通常是在下载或加载本地向量模型，等待完成后再次检索即可。
 - **页面能打开但审核失败**：检查 DeepSeek API Key、网络连接、账户余额和所选模型是否可用。
 - **历史记录在哪里**：保存在 `server/data/contract-reviewer.sqlite`；升级代码前可单独备份该文件。
