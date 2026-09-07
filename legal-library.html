@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法律依据库 - AI合同审核工具</title>
+    <link rel="stylesheet" href="css/civil-code.css">
+    <script src="js/civil-code-data.js"></script>
+    <script src="js/legal-basis-data.js"></script>
+    <script src="js/legal-basis-evidence.js"></script>
+</head>
+<body>
+    <div class="header">
+        <div class="header-row">
+            <h1>合同审核法律依据库</h1>
+            <a href="index.html">返回合同审核工具</a>
+        </div>
+        <div class="disclaimer">
+            收录《民法典》及24份现行法律、司法解释。版本核验基准日为2026年9月6日；条文仅供辅助审阅，具体适用请以页面提供的官方来源为准。
+        </div>
+        <div class="search">
+            <select id="documentFilter" aria-label="选择法律文件"></select>
+            <input id="searchInput" type="search" placeholder="搜索法律名称、条号或关键词，例如：软件著作权、竞业限制、委托处理">
+            <button id="searchBtn">查询</button>
+            <button id="consultBtn">AI咨询</button>
+            <button id="clearBtn">显示所选文件</button>
+        </div>
+    </div>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="toc-title">法律文件</div>
+            <div id="toc"></div>
+        </aside>
+        <div class="content-col">
+            <div id="consultResultContainer"></div>
+            <main class="content" id="content"></main>
+        </div>
+    </div>
+    <script src="js/legal-library-page.js"></script>
+</body>
+</html>

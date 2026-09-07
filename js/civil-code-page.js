@@ -30,6 +30,7 @@ function renderToc() {
 function renderArticle(article) {
     return `
         <div class="article" id="${browser.getArticleAnchor(article.articleNo)}">
+            <div class="legal-effective-date">2020年通过｜2021-01-01施行</div>
             <div class="article-no">${escapeHtml(article.articleNo)}</div>
             <div class="article-path">${escapeHtml(articlePath(article))}</div>
             <div class="article-text">${escapeHtml(article.text)}</div>
@@ -142,7 +143,7 @@ async function askCivilCodeAi() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
             body: JSON.stringify({
-                model: 'deepseek-chat',
+                model: 'deepseek-v4-flash',
                 messages: [
                     { role: 'system', content: '你是民法典咨询助手。只能基于用户提供的候选民法典条文回答，不能编造法条。回答为普通文本。' },
                     { role: 'user', content: prompt }

@@ -1,0 +1,17 @@
+{
+  "name": "contract-reviewer-local-preview",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "build:vectors": "node scripts/build-vector-index.mjs",
+    "start": "node server/vector-server.mjs",
+    "test": "node --test tests/*.test.js",
+    "test:ui": "node tests/ui-smoke.js"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.0.1"
+  }
+}

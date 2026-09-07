@@ -18,3 +18,14 @@ desktop.ini
 *.tmp.docx
 test*.docx
 
+# Node dependencies (recreated with npm install)
+node_modules/
+
+# Downloaded Hugging Face model cache (recreated by npm run build:vectors)
+server/model-cache/
+
+# Local review database and SQLite journals contain user contracts
+server/data/*.sqlite
+server/data/*.sqlite-shm
+server/data/*.sqlite-wal
+
